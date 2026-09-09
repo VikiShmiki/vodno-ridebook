@@ -148,13 +148,22 @@ const PATHS = {
       <path d="M8 17.5c4.5-1 4.5-4.5 1.5-6S8.5 6.5 16 6" />
     </>
   ),
+  // A motorcycle, not a bicycle: the mass between the wheels, the hubs and the
+  // raked fork are what carry that read at 15 px.
   motorcycle: (
     <>
-      <circle cx="5.3" cy="16.5" r="3.4" />
-      <circle cx="18.7" cy="16.5" r="3.4" />
-      <path d="M5.3 16.5 9 9.5h6l3.7 7" />
-      <path d="M9.5 9.5h6.8" />
-      <path d="M14.4 6.5h2.9" />
+      <circle cx="5.4" cy="16.7" r="3.7" />
+      <circle cx="18.6" cy="16.7" r="3.7" />
+      <circle cx="5.4" cy="16.7" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="18.6" cy="16.7" r="0.9" fill="currentColor" stroke="none" />
+      <path
+        fill="currentColor"
+        stroke="none"
+        d="M7.6 16c.2-2.1 1.2-3.3 2.8-3.7l1.4-2h4.2l.8 2.1c1.3.6 2 1.7 2.1 3.6z"
+      />
+      <path d="M17 10.2 18.9 7.9" />
+      <path d="M17.3 7.2h3.6" />
+      <path d="M3.2 15h3.2" />
     </>
   ),
   star: <path d="m12 3.2 2.65 5.55 6.05.82-4.4 4.3 1.07 6.03L12 17.05l-5.37 2.85 1.07-6.03-4.4-4.3 6.05-.82z" />,
