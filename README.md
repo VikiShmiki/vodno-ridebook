@@ -226,6 +226,8 @@ checkout
   │              → pytest against a PostgreSQL 16 service container
   │              → OpenAPI schema validation
   ├─ docker    → build the backend and frontend images (matrix, no push)
+  ├─ elaborat  → compile docs/elaborat.tex with XeLaTeX, fail on an overfull
+  │              box, an unrenderable glyph or a page count outside 3–10
   └─ compose   → docker compose up --build, curl /healthz and /api/health
 ```
 

@@ -363,17 +363,21 @@ checkout
   │               → pytest against a PostgreSQL 16 service container
   │               → assert the OpenAPI schema exposes the required routes
   ├─ docker-build       → Buildx builds both images (matrix), no push
+  ├─ elaborat           → compile this report with XeLaTeX, strictly
   └─ compose-smoke-test → docker compose up --build -d, then curl
                           /healthz, /api/health, /api/stats, /api/reports
 \end{code}
 
-Two details are worth calling out. First, the backend suite runs against a
+Three details are worth calling out. First, the backend suite runs against a
 real \textbf{PostgreSQL 16 service container}, the same major version used in
 Compose and Kubernetes, rather than against a substitute database. Second, the
 \cd{compose-smoke-test} job starts the entire stack and exercises it over
 HTTP, so a change that passes the unit tests but breaks the container wiring
 --- a wrong proxy target, a missing environment variable --- is caught before
-merge. Nothing is published from a pull request.
+merge. Third, this report is itself built by the pipeline: the \cd{elaborat}
+job compiles it with XeLaTeX and fails on an overfull box, a glyph the fonts
+cannot render, or a page count outside the required range, then publishes the
+PDF as a build artifact. Nothing is published from a pull request.
 
 \subsection{\cd{cd.yml} --- pushes to \cd{main}}
 

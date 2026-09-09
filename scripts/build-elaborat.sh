@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Compiles docs/elaborat.tex to docs/elaborat.pdf.
 #
-#   ./scripts/build-elaborat.sh
+#   ./scripts/build-elaborat.sh            warn about problems
+#   ./scripts/build-elaborat.sh --strict    fail on them (used by CI)
 #
 # XeLaTeX is required rather than pdfLaTeX: the architecture diagrams use
 # Unicode box-drawing characters, which need a Unicode engine and a monospace
@@ -10,6 +11,9 @@
 # Debian/Ubuntu:
 #   sudo apt install texlive-xetex texlive-latex-extra fonts-dejavu
 set -euo pipefail
+
+STRICT=0
+[[ "${1:-}" == "--strict" ]] && STRICT=1
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DOCS="${ROOT}/docs"
@@ -39,12 +43,35 @@ done
 
 cp "${BUILD}/elaborat.pdf" "${DOCS}/elaborat.pdf"
 
+problems=0
+
+# Content spilling into the margin is invisible in the source but obvious on
+# the page, so it is checked rather than eyeballed.
+overfull=$(grep -c 'Overfull \\hbox' "${BUILD}/pass2.log" || true)
+if [[ "$overfull" -gt 0 ]]; then
+  echo "WARNING: ${overfull} overfull hbox(es) - text is running into the margin:"
+  grep -A2 'Overfull \\hbox' "${BUILD}/pass2.log" | head -12
+  problems=1
+fi
+
+missing=$(grep -c 'Missing character' "${BUILD}/pass2.log" || true)
+if [[ "$missing" -gt 0 ]]; then
+  echo "WARNING: ${missing} character(s) the chosen fonts cannot render."
+  problems=1
+fi
+
+pages=""
 if command -v pdfinfo >/dev/null; then
   pages=$(pdfinfo "${DOCS}/elaborat.pdf" | awk '/^Pages:/ {print $2}')
-  echo "Wrote ${DOCS}/elaborat.pdf (${pages} pages)"
   if [[ "$pages" -lt 3 || "$pages" -gt 10 ]]; then
     echo "WARNING: the brief asks for 3-10 pages, this is ${pages}."
+    problems=1
   fi
-else
-  echo "Wrote ${DOCS}/elaborat.pdf"
+fi
+
+echo "Wrote ${DOCS}/elaborat.pdf${pages:+ (${pages} pages)}"
+
+if [[ "$problems" -eq 1 && "$STRICT" -eq 1 ]]; then
+  echo "Failing because --strict was requested."
+  exit 1
 fi

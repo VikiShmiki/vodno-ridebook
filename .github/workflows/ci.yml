@@ -160,6 +160,34 @@ jobs:
       - name: Show image size
         run: docker image ls vodno-${{ matrix.service }}:ci
 
+  elaborat:
+    name: Build the report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # This exact set was verified in a clean ubuntu:24.04 container and is
+      # about 270 MB; texlive-latex-extra is not needed and would be ~2 GB.
+      - name: Install XeLaTeX
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            texlive-xetex texlive-latex-recommended texlive-fonts-recommended \
+            fonts-dejavu-core poppler-utils
+
+      # --strict fails the build on an overfull box, a glyph the fonts cannot
+      # render, or a page count outside the 3-10 the brief asks for.
+      - name: Compile docs/elaborat.tex
+        run: ./scripts/build-elaborat.sh --strict
+
+      - name: Upload the report
+        uses: actions/upload-artifact@v4
+        with:
+          name: elaborat-pdf
+          path: docs/elaborat.pdf
+          retention-days: 30
+
   compose-smoke-test:
     name: Docker Compose smoke test
     runs-on: ubuntu-latest
