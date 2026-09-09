@@ -19,3 +19,7 @@ ignore = ["B008"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Make `app` importable regardless of how pytest is started. Bare `pytest`
+# does not put the working directory on sys.path the way `python -m pytest`
+# does, so without this the suite passes locally and fails in CI.
+pythonpath = ["."]
