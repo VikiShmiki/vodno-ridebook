@@ -158,12 +158,30 @@ paths each service genuinely needs — `/tmp` for the backend, and
 `/etc/nginx/conf.d`, `/var/cache/nginx` and `/tmp` for nginx — are mounted as
 `emptyDir` volumes.
 
-### Schematic map instead of a tile map
+### No third-party requests from the browser
 
-The road reports page draws the road as an SVG polyline and snaps each report
-onto it by projecting its coordinates. This avoids an external map dependency,
-an API key and roughly 150 kB of JavaScript, which suits a project whose focus
-is the delivery pipeline rather than cartography.
+Three choices keep the running application self-contained, which matters for a
+cluster with no internet egress and makes the deployment reproducible:
+
+- The road reports page draws the road as an **SVG polyline** and snaps each
+  report onto it by projecting its coordinates, instead of loading map tiles.
+  That avoids an external dependency, an API key and roughly 150 kB of
+  JavaScript, and suits a project whose focus is the delivery pipeline rather
+  than cartography.
+- Icons are an **inline SVG set** in `src/components/Icon.tsx`, so there is no
+  icon font or icon library to install or fetch.
+- The **Inter webfont is vendored** into `src/assets/fonts` (three subsets,
+  152 kB total) and hashed into the bundle by Vite, rather than loaded from a
+  font CDN.
+
+### Styling
+
+Styles are hand-written CSS in three layers — `tokens.css` (every colour,
+size, radius, shadow and timing), `base.css` (resets and form controls) and
+`components.css`. No component hardcodes a literal value, so the whole theme
+can be retuned from the token file. A utility framework was considered and
+rejected: it would add a build dependency and rewrite every component's markup
+for no benefit at this size.
 
 ---
 

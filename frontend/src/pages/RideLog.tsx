@@ -2,16 +2,17 @@ import { useState } from 'react'
 
 import { createRide, deleteRide, listMotorcycles, listRides } from '../api/endpoints'
 import { useAsync } from '../api/useAsync'
-import { WEATHER_LABELS, formatDate } from '../components/labels'
-import { Card, Empty, ErrorNote, Loading } from '../components/ui'
-import { WEATHER_OPTIONS, type RideCreate, type Weather } from '../types/api'
+import { Icon } from '../components/Icon'
+import { WEATHER_ICONS, WEATHER_LABELS, formatDate } from '../components/labels'
+import { Card, EmptyState, ErrorNote, Skeleton, SuccessNote } from '../components/ui'
+import { WEATHER_OPTIONS, type Weather } from '../types/api'
 
-const RATINGS: Array<{ field: keyof RideCreate; label: string }> = [
+const RATINGS = [
   { field: 'road_quality_rating', label: 'Road quality' },
   { field: 'traffic_rating', label: 'Traffic' },
   { field: 'road_cleanliness_rating', label: 'Cleanliness' },
   { field: 'enjoyment_rating', label: 'Enjoyment' },
-]
+] as const
 
 const emptyForm = () => ({
   date: new Date().toISOString().slice(0, 10),
@@ -32,11 +33,13 @@ export function RideLog() {
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setSubmitting(true)
     setError(null)
+    setSaved(false)
     try {
       await createRide({
         date: form.date,
@@ -51,6 +54,7 @@ export function RideLog() {
         notes: form.notes.trim() || null,
       })
       setForm(emptyForm())
+      setSaved(true)
       rides.reload()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save the ride')
@@ -64,6 +68,8 @@ export function RideLog() {
     rides.reload()
   }
 
+  const items = rides.data ?? []
+
   return (
     <>
       <div className="page-head">
@@ -71,12 +77,12 @@ export function RideLog() {
         <p>Log a run up Vodno and rate the conditions you found.</p>
       </div>
 
-      <div className="grid" style={{ gap: '1rem' }}>
-        <Card title="Log a new ride">
+      <div className="stack">
+        <Card title="Log a new ride" icon="plus">
           <form onSubmit={submit}>
             <div className="form-grid">
-              <label>
-                Date
+              <label className="field">
+                <span className="label">Date</span>
                 <input
                   type="date"
                   required
@@ -84,16 +90,16 @@ export function RideLog() {
                   onChange={(event) => setForm({ ...form, date: event.target.value })}
                 />
               </label>
-              <label>
-                Time
+              <label className="field">
+                <span className="label">Time</span>
                 <input
                   type="time"
                   value={form.time}
                   onChange={(event) => setForm({ ...form, time: event.target.value })}
                 />
               </label>
-              <label>
-                Motorcycle
+              <label className="field">
+                <span className="label">Motorcycle</span>
                 <select
                   value={form.motorcycle_id}
                   onChange={(event) => setForm({ ...form, motorcycle_id: event.target.value })}
@@ -106,13 +112,11 @@ export function RideLog() {
                   ))}
                 </select>
               </label>
-              <label>
-                Weather
+              <label className="field">
+                <span className="label">Weather</span>
                 <select
                   value={form.weather}
-                  onChange={(event) =>
-                    setForm({ ...form, weather: event.target.value as Weather })
-                  }
+                  onChange={(event) => setForm({ ...form, weather: event.target.value as Weather })}
                 >
                   {WEATHER_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -121,35 +125,44 @@ export function RideLog() {
                   ))}
                 </select>
               </label>
-              <label>
-                Distance (km)
+              <label className="field">
+                <span className="label">Distance (km)</span>
                 <input
                   type="number"
                   min="0"
                   max="1000"
                   step="0.5"
+                  placeholder="0"
                   value={form.distance_km}
                   onChange={(event) => setForm({ ...form, distance_km: event.target.value })}
                 />
               </label>
 
-              {RATINGS.map(({ field, label }) => (
-                <label key={field}>
-                  {label}: {form[field as keyof typeof form] as number}/5
-                  <input
-                    type="range"
-                    min="1"
-                    max="5"
-                    value={form[field as keyof typeof form] as number}
-                    onChange={(event) =>
-                      setForm({ ...form, [field]: Number(event.target.value) })
-                    }
-                  />
-                </label>
-              ))}
+              {RATINGS.map(({ field, label }) => {
+                const value = form[field]
+                return (
+                  <label className="field" key={field}>
+                    <span className="label">
+                      {label}
+                      <span className="rating-value">{value}/5</span>
+                    </span>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      value={value}
+                      // Drives the filled portion of the WebKit slider track.
+                      style={{ '--fill': `${((value - 1) / 4) * 100}%` } as React.CSSProperties}
+                      onChange={(event) =>
+                        setForm({ ...form, [field]: Number(event.target.value) })
+                      }
+                    />
+                  </label>
+                )
+              })}
 
-              <label className="full">
-                Notes
+              <label className="field full">
+                <span className="label">Notes</span>
                 <textarea
                   placeholder="Anything worth remembering about this ride"
                   value={form.notes}
@@ -157,22 +170,34 @@ export function RideLog() {
                 />
               </label>
             </div>
-            <div className="row" style={{ marginTop: '0.9rem' }}>
+
+            <div className="form-actions">
               <button className="primary" type="submit" disabled={submitting}>
+                <Icon name="check" size={15} />
                 {submitting ? 'Saving…' : 'Save ride'}
               </button>
-              {error && <span className="error">{error}</span>}
+              {error && <ErrorNote message={error} />}
+              {saved && !error && <SuccessNote message="Ride saved." />}
             </div>
           </form>
         </Card>
 
-        <Card title={`Previous rides${rides.data ? ` (${rides.data.length})` : ''}`}>
+        <Card
+          title="Previous rides"
+          icon="rides"
+          flush
+          action={<span className="badge">{items.length}</span>}
+        >
           {rides.loading ? (
-            <Loading what="rides" />
+            <div style={{ padding: 'var(--sp-5)' }}>
+              <Skeleton lines={5} />
+            </div>
           ) : rides.error ? (
-            <ErrorNote message={rides.error} />
-          ) : (rides.data ?? []).length === 0 ? (
-            <Empty>No rides yet — log your first run above.</Empty>
+            <div style={{ padding: 'var(--sp-5)' }}>
+              <ErrorNote message={rides.error} />
+            </div>
+          ) : items.length === 0 ? (
+            <EmptyState icon="rides">No rides yet — log your first run above.</EmptyState>
           ) : (
             <div className="table-wrap">
               <table>
@@ -190,19 +215,29 @@ export function RideLog() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(rides.data ?? []).map((ride) => (
+                  {items.map((ride) => (
                     <tr key={ride.id}>
-                      <td>{formatDate(ride.date)}</td>
-                      <td>{WEATHER_LABELS[ride.weather]}</td>
-                      <td>{ride.distance_km ?? '–'}</td>
-                      <td>{ride.road_quality_rating}</td>
-                      <td>{ride.traffic_rating}</td>
-                      <td>{ride.road_cleanliness_rating}</td>
-                      <td>{ride.enjoyment_rating}</td>
-                      <td className="muted">{ride.notes ?? '–'}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{formatDate(ride.date)}</td>
                       <td>
-                        <button className="ghost" onClick={() => remove(ride.id)}>
-                          Delete
+                        <span className="row" style={{ gap: '0.4rem', flexWrap: 'nowrap' }}>
+                          <Icon name={WEATHER_ICONS[ride.weather]} size={14} className="faint" />
+                          {WEATHER_LABELS[ride.weather]}
+                        </span>
+                      </td>
+                      <td className="num">{ride.distance_km ?? '–'}</td>
+                      <td className="num">{ride.road_quality_rating}</td>
+                      <td className="num">{ride.traffic_rating}</td>
+                      <td className="num">{ride.road_cleanliness_rating}</td>
+                      <td className="num">{ride.enjoyment_rating}</td>
+                      <td className="notes">{ride.notes ?? '–'}</td>
+                      <td className="actions">
+                        <button
+                          className="ghost danger icon"
+                          onClick={() => remove(ride.id)}
+                          aria-label={`Delete the ride on ${formatDate(ride.date)}`}
+                          title="Delete ride"
+                        >
+                          <Icon name="trash" size={15} />
                         </button>
                       </td>
                     </tr>

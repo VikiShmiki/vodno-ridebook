@@ -2,18 +2,14 @@ import { useState } from 'react'
 
 import { createReport, deleteReport, listReports, resolveReport } from '../api/endpoints'
 import { useAsync } from '../api/useAsync'
-import { RoadMap } from '../components/RoadMap'
-import { CATEGORY_LABELS, SEVERITY_LABELS, timeAgo } from '../components/labels'
-import { Card, Empty, ErrorNote, Loading } from '../components/ui'
-import {
-  REPORT_CATEGORIES,
-  SEVERITIES,
-  type ReportCategory,
-  type Severity,
-} from '../types/api'
+import { Icon } from '../components/Icon'
+import { MapLegend, RoadMap } from '../components/RoadMap'
+import { CATEGORY_ICONS, CATEGORY_LABELS, SEVERITY_LABELS, timeAgo } from '../components/labels'
+import { Badge, Card, EmptyState, ErrorNote, Skeleton, SuccessNote } from '../components/ui'
+import { REPORT_CATEGORIES, SEVERITIES, type ReportCategory, type Severity } from '../types/api'
 
 // Roughly the middle of the climb, used as the default pin position.
-const DEFAULT_POSITION = { latitude: 41.9938, longitude: 21.4051 }
+const DEFAULT_POSITION = { latitude: '41.9938', longitude: '21.4051' }
 
 export function Reports() {
   const [showResolved, setShowResolved] = useState(false)
@@ -23,16 +19,17 @@ export function Reports() {
     category: 'gravel' as ReportCategory,
     severity: 'medium' as Severity,
     description: '',
-    latitude: String(DEFAULT_POSITION.latitude),
-    longitude: String(DEFAULT_POSITION.longitude),
+    ...DEFAULT_POSITION,
   })
   const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setSubmitting(true)
     setError(null)
+    setSaved(false)
     try {
       await createReport({
         category: form.category,
@@ -42,6 +39,7 @@ export function Reports() {
         longitude: Number(form.longitude),
       })
       setForm({ ...form, description: '' })
+      setSaved(true)
       reports.reload()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save the report')
@@ -72,11 +70,11 @@ export function Reports() {
       <div className="grid cols-2">
         <Card
           title="Map"
+          icon="map"
           action={
-            <label className="row" style={{ fontSize: '0.8rem' }}>
+            <label className="checkbox">
               <input
                 type="checkbox"
-                style={{ width: 'auto' }}
                 checked={showResolved}
                 onChange={(event) => setShowResolved(event.target.checked)}
               />
@@ -85,13 +83,14 @@ export function Reports() {
           }
         >
           <RoadMap reports={items} selectedId={selectedId} onSelect={(r) => setSelectedId(r.id)} />
+          <MapLegend />
         </Card>
 
-        <Card title="Report a condition">
+        <Card title="Report a condition" icon="pin">
           <form onSubmit={submit}>
             <div className="form-grid">
-              <label>
-                Category
+              <label className="field">
+                <span className="label">Category</span>
                 <select
                   value={form.category}
                   onChange={(event) =>
@@ -105,8 +104,8 @@ export function Reports() {
                   ))}
                 </select>
               </label>
-              <label>
-                Severity
+              <label className="field">
+                <span className="label">Severity</span>
                 <select
                   value={form.severity}
                   onChange={(event) =>
@@ -120,8 +119,8 @@ export function Reports() {
                   ))}
                 </select>
               </label>
-              <label>
-                Latitude
+              <label className="field">
+                <span className="label">Latitude</span>
                 <input
                   type="number"
                   step="0.0001"
@@ -130,8 +129,8 @@ export function Reports() {
                   onChange={(event) => setForm({ ...form, latitude: event.target.value })}
                 />
               </label>
-              <label>
-                Longitude
+              <label className="field">
+                <span className="label">Longitude</span>
                 <input
                   type="number"
                   step="0.0001"
@@ -140,8 +139,8 @@ export function Reports() {
                   onChange={(event) => setForm({ ...form, longitude: event.target.value })}
                 />
               </label>
-              <label className="full">
-                Description
+              <label className="field full">
+                <span className="label">Description</span>
                 <textarea
                   required
                   placeholder="What should other riders know?"
@@ -150,49 +149,77 @@ export function Reports() {
                 />
               </label>
             </div>
-            <div className="row" style={{ marginTop: '0.9rem' }}>
+
+            <div className="form-actions">
               <button className="primary" type="submit" disabled={submitting}>
+                <Icon name="pin" size={15} />
                 {submitting ? 'Saving…' : 'Submit report'}
               </button>
-              {error && <span className="error">{error}</span>}
+              {error && <ErrorNote message={error} />}
+              {saved && !error && <SuccessNote message="Report submitted." />}
             </div>
           </form>
         </Card>
       </div>
 
-      <div style={{ marginTop: '1rem' }}>
-        <Card title={`Reports (${items.length})`}>
+      <div style={{ marginTop: 'var(--sp-4)' }}>
+        <Card
+          title={showResolved ? 'All reports' : 'Open reports'}
+          icon="reports"
+          flush
+          action={<span className="badge">{items.length}</span>}
+        >
           {reports.loading ? (
-            <Loading what="reports" />
+            <div style={{ padding: 'var(--sp-5)' }}>
+              <Skeleton lines={5} />
+            </div>
           ) : reports.error ? (
-            <ErrorNote message={reports.error} />
+            <div style={{ padding: 'var(--sp-5)' }}>
+              <ErrorNote message={reports.error} />
+            </div>
           ) : items.length === 0 ? (
-            <Empty>No reports match the current filter.</Empty>
+            <EmptyState icon="check">No reports match the current filter.</EmptyState>
           ) : (
-            <ul className="list">
+            <ul className="list hoverable">
               {items.map((report) => (
                 <li
                   key={report.id}
                   onMouseEnter={() => setSelectedId(report.id)}
                   onMouseLeave={() => setSelectedId(null)}
                 >
-                  <div>
-                    <strong>{CATEGORY_LABELS[report.category]}</strong>{' '}
-                    <span className={`badge ${report.resolved ? 'resolved' : report.severity}`}>
-                      {report.resolved ? 'Resolved' : SEVERITY_LABELS[report.severity]}
+                  <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+                    <span className={`icon-chip ${report.resolved ? 'resolved' : report.severity}`}>
+                      <Icon name={CATEGORY_ICONS[report.category]} size={16} />
                     </span>
-                    <div className="meta">{report.description}</div>
-                    <div className="meta">
-                      {report.latitude.toFixed(4)}, {report.longitude.toFixed(4)} ·{' '}
-                      {timeAgo(report.created_at)}
+                    <div>
+                      <div className="item-title">
+                        {CATEGORY_LABELS[report.category]}
+                        <Badge tone={report.resolved ? 'resolved' : report.severity}>
+                          {report.resolved ? 'Resolved' : SEVERITY_LABELS[report.severity]}
+                        </Badge>
+                      </div>
+                      <div className="meta">{report.description}</div>
+                      <div className="meta faint mono">
+                        {report.latitude.toFixed(4)}, {report.longitude.toFixed(4)} ·{' '}
+                        {timeAgo(report.created_at)}
+                      </div>
                     </div>
                   </div>
-                  <div className="row">
-                    <button className="ghost" onClick={() => toggleResolved(report.id, !report.resolved)}>
-                      {report.resolved ? 'Reopen' : 'Mark resolved'}
+                  <div className="row" style={{ gap: '0.25rem', flexWrap: 'nowrap' }}>
+                    <button
+                      className="ghost"
+                      onClick={() => toggleResolved(report.id, !report.resolved)}
+                    >
+                      <Icon name={report.resolved ? 'undo' : 'check'} size={14} />
+                      {report.resolved ? 'Reopen' : 'Resolve'}
                     </button>
-                    <button className="ghost" onClick={() => remove(report.id)}>
-                      Delete
+                    <button
+                      className="ghost danger icon"
+                      onClick={() => remove(report.id)}
+                      aria-label="Delete report"
+                      title="Delete report"
+                    >
+                      <Icon name="trash" size={15} />
                     </button>
                   </div>
                 </li>

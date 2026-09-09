@@ -90,8 +90,8 @@ uid=101(nginx) gid=101(nginx) groups=101(nginx)
 Image sizes after the multi-stage builds:
 
 ```text
-vodno-frontend:local   74.1MB
-vodno-backend:local    310MB
+vodno-frontend:local   74.4MB
+vodno-backend:local    311MB
 ```
 
 ### Compose volume persistence

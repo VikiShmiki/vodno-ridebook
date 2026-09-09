@@ -80,7 +80,9 @@ library; a small `useAsync` hook handles loading, error and reload state for
 each fetch. Road reports are drawn on a schematic SVG map of the climb, each
 report projected from its coordinates and snapped onto the drawn road — chosen
 over a tile map to avoid an external dependency, an API key and roughly 150 kB
-of JavaScript.
+of JavaScript. The icon set is inline SVG and the Inter webfont is served from
+the image itself, so the running application makes no request to any third
+party.
 
 ### Backend
 
@@ -154,8 +156,8 @@ an nginx configuration template.
 
 | Image             | Size    | Runs as        |
 | ----------------- | ------- | -------------- |
-| `vodno-frontend`  | 74.1 MB | `uid=101(nginx)` |
-| `vodno-backend`   | 310 MB  | `uid=1001(vodno)` |
+| `vodno-frontend`  | 74.4 MB | `uid=101(nginx)` |
+| `vodno-backend`   | 311 MB  | `uid=1001(vodno)` |
 
 Both were verified with `docker compose exec <service> id` in the running
 containers.
@@ -566,7 +568,7 @@ A complete, working path from source code to a running Kubernetes deployment:
 
 - A three-tier application with 31 automated tests (21 backend, 10 frontend),
   clean linting on both sides and a database-aware health endpoint.
-- Multi-stage Docker images for both services (74 MB and 310 MB), non-root with
+- Multi-stage Docker images for both services (74 MB and 311 MB), non-root with
   read-only root filesystems.
 - A Docker Compose stack with health checks, ordered startup, a private network
   and a persistent named volume.

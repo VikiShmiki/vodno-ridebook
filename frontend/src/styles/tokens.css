@@ -1,0 +1,113 @@
+/*
+ * Design tokens.
+ *
+ * Every colour, size, radius, shadow and timing used anywhere in the app is
+ * declared here once. Components never hardcode a literal value, so the whole
+ * look can be retuned from this file.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* --- surfaces ------------------------------------------------------- */
+  --bg: #f4f6f9;
+  --bg-tint: #eef1f6;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --surface-3: #eceff4;
+
+  /* --- lines ---------------------------------------------------------- */
+  --border: #e2e6ed;
+  --border-strong: #ccd3de;
+
+  /* --- schematic map -------------------------------------------------- */
+  --road: #cdd4de;
+  --road-edge: #aab4c2;
+  --road-line: #ffffff;
+
+  /* --- text ----------------------------------------------------------- */
+  --text: #151922;
+  --text-2: #566073;
+  --text-3: #8b95a6;
+  --text-inverse: #ffffff;
+
+  /* --- brand ---------------------------------------------------------- */
+  /* --accent is for fills and graphics (>=3:1 on white).
+     --accent-ink is the text-safe variant (>=4.5:1 on white). */
+  --accent: #ea580c;
+  --accent-hover: #d64d08;
+  --accent-ink: #b8430a;
+  --accent-soft: #fff2e9;
+  --accent-line: #fbd0b0;
+
+  /* --- status --------------------------------------------------------- */
+  --ok: #047857;
+  --ok-soft: #e7f7f0;
+  --ok-line: #a7e3cb;
+
+  --warn: #a1620b;
+  --warn-soft: #fdf5e3;
+  --warn-line: #f0d79b;
+
+  --danger: #b91c1c;
+  --danger-soft: #fdeeee;
+  --danger-line: #f4b8b8;
+
+  --info: #1d4ed8;
+  --info-soft: #eef2ff;
+
+  /* --- radii ---------------------------------------------------------- */
+  --r-sm: 6px;
+  --r: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --r-full: 999px;
+
+  /* --- elevation ------------------------------------------------------ */
+  --shadow-xs: 0 1px 2px rgba(19, 26, 41, 0.05);
+  --shadow-sm: 0 1px 3px rgba(19, 26, 41, 0.07), 0 1px 2px rgba(19, 26, 41, 0.04);
+  --shadow-md: 0 4px 14px rgba(19, 26, 41, 0.07), 0 2px 4px rgba(19, 26, 41, 0.04);
+  --shadow-lg: 0 14px 38px rgba(19, 26, 41, 0.11), 0 3px 8px rgba(19, 26, 41, 0.05);
+  --ring: 0 0 0 3px rgba(234, 88, 12, 0.18);
+
+  /* --- typography ----------------------------------------------------- */
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, "Cascadia Mono", monospace;
+
+  --fs-xs: 0.6875rem;
+  --fs-sm: 0.78125rem;
+  --fs-md: 0.875rem;
+  --fs-base: 0.9375rem;
+  --fs-lg: 1.0625rem;
+  --fs-xl: 1.3125rem;
+  --fs-2xl: 1.75rem;
+  --fs-3xl: 2.125rem;
+
+  /* --- spacing -------------------------------------------------------- */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.25rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-10: 2.5rem;
+
+  /* --- motion --------------------------------------------------------- */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --dur-slow: 320ms;
+}
+
+/* Respect a user's reduced-motion preference across the whole app. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

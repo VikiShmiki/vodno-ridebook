@@ -1,55 +1,59 @@
+import { Icon } from './Icon'
+import { CATEGORY_ICONS, CATEGORY_LABELS, SEVERITY_LABELS } from './labels'
 import type { RoadReport } from '../types/api'
-import { CATEGORY_ICONS, CATEGORY_LABELS } from './labels'
 
 /**
  * Schematic map of the road up to Sredno Vodno.
  *
- * Reports are projected from their WGS84 coordinates with a linear mapping of
- * the bounding box the API accepts, then snapped onto the drawn road so a
- * marker always sits on the tarmac. It is deliberately not a real tile map,
- * which keeps the frontend free of external map dependencies and API keys.
+ * Reports are projected from their WGS84 coordinates and snapped onto the
+ * drawn road, so a marker always sits on the tarmac. It is deliberately not a
+ * real tile map, which keeps the frontend free of an external map dependency
+ * and of any runtime network call to a third party.
  */
 const BOUNDS = { minLat: 41.985, maxLat: 42.003, minLon: 21.393, maxLon: 21.417 }
 const WIDTH = 640
-const HEIGHT = 300
-const PADDING = 38
+const HEIGHT = 292
 
-// The road as a polyline, drawn bottom-right (city side) to top-left (summit).
+// The road as a polyline, from the city end (bottom right) up to the summit.
 const ROAD: Array<[number, number]> = [
-  [WIDTH - PADDING, HEIGHT - PADDING],
-  [WIDTH - 140, HEIGHT - 78],
-  [WIDTH - 205, HEIGHT - 96],
-  [WIDTH - 255, HEIGHT - 145],
-  [WIDTH - 330, HEIGHT - 158],
-  [WIDTH - 400, HEIGHT - 196],
-  [WIDTH - 470, HEIGHT - 200],
-  [WIDTH - 545, HEIGHT - 236],
-  [PADDING + 22, PADDING + 18],
+  [604, 252], // Skopje / Vodno base
+  [520, 247],
+  [300, 237],
+  [150, 219],
+  [96, 196], // hairpin
+  [150, 172],
+  [330, 164],
+  [500, 152],
+  [556, 128], // hairpin
+  [500, 104],
+  [320, 96],
+  [170, 86],
+  [108, 64], // hairpin
+  [150, 44],
+  [252, 40], // Sredno Vodno
 ]
 
 const ROAD_PATH = ROAD.map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ')
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value))
 
-/** Fraction along the climb, 0 at the city end and 1 at Sredno Vodno. */
+/** Fraction along the climb: 0 at the city end, 1 at Sredno Vodno. */
 function progress(latitude: number, longitude: number): number {
   const north = clamp((latitude - BOUNDS.minLat) / (BOUNDS.maxLat - BOUNDS.minLat))
   const west = clamp((BOUNDS.maxLon - longitude) / (BOUNDS.maxLon - BOUNDS.minLon))
-  // The road climbs north-west, so both axes contribute to the position.
   return (north + west) / 2
 }
 
-const SEGMENT_LENGTHS = ROAD.slice(1).map(([x, y], index) =>
+const SEGMENTS = ROAD.slice(1).map(([x, y], index) =>
   Math.hypot(x - ROAD[index][0], y - ROAD[index][1]),
 )
-const TOTAL_LENGTH = SEGMENT_LENGTHS.reduce((sum, length) => sum + length, 0)
+const TOTAL_LENGTH = SEGMENTS.reduce((sum, length) => sum + length, 0)
 
-/** Point at the given fraction of the polyline's total length. */
 function pointAt(fraction: number): { x: number; y: number } {
   let remaining = clamp(fraction) * TOTAL_LENGTH
-  for (let index = 0; index < SEGMENT_LENGTHS.length; index += 1) {
-    const length = SEGMENT_LENGTHS[index]
-    if (remaining <= length || index === SEGMENT_LENGTHS.length - 1) {
+  for (let index = 0; index < SEGMENTS.length; index += 1) {
+    const length = SEGMENTS[index]
+    if (remaining <= length || index === SEGMENTS.length - 1) {
       const ratio = length === 0 ? 0 : Math.min(1, remaining / length)
       const [x1, y1] = ROAD[index]
       const [x2, y2] = ROAD[index + 1]
@@ -61,10 +65,28 @@ function pointAt(fraction: number): { x: number; y: number } {
 }
 
 function markerColor(report: RoadReport): string {
-  if (report.resolved) return '#5b6373'
-  if (report.severity === 'high') return '#f2635f'
-  if (report.severity === 'medium') return '#f5b544'
-  return '#3ecf8e'
+  if (report.resolved) return 'var(--text-3)'
+  if (report.severity === 'high') return 'var(--danger)'
+  if (report.severity === 'medium') return 'var(--warn)'
+  return 'var(--ok)'
+}
+
+function Endpoint({ x, y, label, anchor }: { x: number; y: number; label: string; anchor: 'start' | 'end' }) {
+  return (
+    <g>
+      <circle cx={x} cy={y} r="4.5" fill="var(--surface)" stroke="var(--text-3)" strokeWidth="2" />
+      <text
+        x={anchor === 'end' ? x - 9 : x + 10}
+        y={y + 4}
+        textAnchor={anchor}
+        fill="var(--text-2)"
+        fontSize="11.5"
+        fontWeight="600"
+      >
+        {label}
+      </text>
+    </g>
+  )
 }
 
 export function RoadMap({
@@ -83,11 +105,18 @@ export function RoadMap({
       role="img"
       aria-label="Schematic map of the Sredno Vodno road with reported conditions"
     >
-      <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="#12151c" rx="10" />
+      <defs>
+        {/* Barely-there altitude wash: cooler towards the summit. */}
+        <linearGradient id="hillside" x1="0" y1="1" x2="0.15" y2="0">
+          <stop offset="0%" stopColor="var(--surface-2)" />
+          <stop offset="100%" stopColor="var(--bg-tint)" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="url(#hillside)" />
 
       <path
         d={ROAD_PATH}
-        stroke="#2a2f3a"
+        stroke="var(--road-edge)"
         strokeWidth="20"
         fill="none"
         strokeLinecap="round"
@@ -95,7 +124,15 @@ export function RoadMap({
       />
       <path
         d={ROAD_PATH}
-        stroke="#454d5e"
+        stroke="var(--road)"
+        strokeWidth="16"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d={ROAD_PATH}
+        stroke="var(--road-line)"
         strokeWidth="2"
         strokeDasharray="11 13"
         fill="none"
@@ -103,21 +140,8 @@ export function RoadMap({
         strokeLinejoin="round"
       />
 
-      <circle cx={ROAD[0][0]} cy={ROAD[0][1]} r="4" fill="#9aa3b2" />
-      <text
-        x={ROAD[0][0]}
-        y={ROAD[0][1] + 20}
-        fill="#9aa3b2"
-        fontSize="12"
-        textAnchor="end"
-      >
-        Skopje
-      </text>
-
-      <circle cx={ROAD.at(-1)![0]} cy={ROAD.at(-1)![1]} r="4" fill="#9aa3b2" />
-      <text x={ROAD.at(-1)![0] + 10} y={ROAD.at(-1)![1] + 4} fill="#9aa3b2" fontSize="12">
-        Sredno Vodno
-      </text>
+      <Endpoint x={ROAD[0][0]} y={ROAD[0][1]} label="Skopje" anchor="end" />
+      <Endpoint x={ROAD.at(-1)![0]} y={ROAD.at(-1)![1]} label="Sredno Vodno" anchor="start" />
 
       {reports.map((report) => {
         const { x, y } = pointAt(progress(report.latitude, report.longitude))
@@ -131,23 +155,51 @@ export function RoadMap({
             aria-label={`${CATEGORY_LABELS[report.category]}: ${report.description}`}
           >
             <title>
-              {CATEGORY_LABELS[report.category]} — {report.description}
+              {CATEGORY_LABELS[report.category]} · {SEVERITY_LABELS[report.severity]} —{' '}
+              {report.description}
             </title>
-            <circle cx={x} cy={y} r={active ? 17 : 13} fill={color} opacity={active ? 0.4 : 0.22} />
-            <circle cx={x} cy={y} r="8" fill={color} stroke="#12151c" strokeWidth="1.5" />
-            <text
-              x={x}
-              y={y + 3.5}
-              fontSize="9"
-              textAnchor="middle"
-              fill="#12151c"
+            <circle cx={x} cy={y} r={active ? 21 : 17} fill={color} opacity={active ? 0.22 : 0.13} />
+            <circle
+              cx={x}
+              cy={y}
+              r="12"
+              fill={color}
+              stroke="var(--surface)"
+              strokeWidth="2.5"
+              style={{ filter: 'drop-shadow(0 1px 2px rgba(19,26,41,.25))' }}
+            />
+            {/* Nested SVG: renders the category glyph inside the marker. */}
+            <Icon
+              name={CATEGORY_ICONS[report.category]}
+              size={13}
+              x={x - 6.5}
+              y={y - 6.5}
+              stroke="var(--surface)"
+              strokeWidth={2.2}
               style={{ pointerEvents: 'none' }}
-            >
-              {CATEGORY_ICONS[report.category]}
-            </text>
+            />
           </g>
         )
       })}
     </svg>
+  )
+}
+
+export function MapLegend() {
+  return (
+    <div className="map-legend">
+      <span>
+        <i style={{ background: 'var(--ok)' }} /> Low
+      </span>
+      <span>
+        <i style={{ background: 'var(--warn)' }} /> Medium
+      </span>
+      <span>
+        <i style={{ background: 'var(--danger)' }} /> High
+      </span>
+      <span>
+        <i style={{ background: 'var(--text-3)' }} /> Resolved
+      </span>
+    </div>
   )
 }
