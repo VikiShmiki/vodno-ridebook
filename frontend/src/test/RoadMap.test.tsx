@@ -7,9 +7,9 @@ import type { RoadReport } from '../types/api'
 const report: RoadReport = {
   id: 1,
   category: 'gravel',
-  latitude: 41.9906,
-  longitude: 21.4098,
-  description: 'Loose gravel on the second hairpin.',
+  latitude: 41.97459,
+  longitude: 21.42797,
+  description: 'Loose gravel on the hairpin 2.6 km up.',
   severity: 'high',
   resolved: false,
   created_at: new Date().toISOString(),
@@ -20,7 +20,7 @@ describe('RoadMap', () => {
     const { container } = render(<RoadMap reports={[report, { ...report, id: 2 }]} />)
 
     expect(container.querySelectorAll('g.marker')).toHaveLength(2)
-    expect(screen.getByRole('img', { name: /Sredno Vodno road/ })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /Sredno Vodno/ })).toBeInTheDocument()
   })
 
   it('renders with no reports at all', () => {

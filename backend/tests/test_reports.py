@@ -46,3 +46,13 @@ def test_delete_report(client):
 
     assert client.delete(f"/api/reports/{report_id}").status_code == 204
     assert client.get("/api/reports").json() == []
+
+
+def test_coordinates_must_fall_near_the_vodno_road(client):
+    """The bounding box is tied to the real OpenStreetMap centreline."""
+    on_road = {**REPORT, "latitude": 41.97459, "longitude": 21.42797}  # 2.6 km up
+    assert client.post("/api/reports", json=on_road).status_code == 201
+
+    # Skopje city centre is inside Skopje but nowhere near the climb.
+    city_centre = {**REPORT, "latitude": 41.9965, "longitude": 21.4314}
+    assert client.post("/api/reports", json=city_centre).status_code == 422

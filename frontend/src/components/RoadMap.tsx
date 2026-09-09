@@ -1,67 +1,114 @@
 import { Icon } from './Icon'
 import { CATEGORY_ICONS, CATEGORY_LABELS, SEVERITY_LABELS } from './labels'
+import {
+  ROAD_ATTRIBUTION,
+  ROAD_BOUNDS,
+  ROAD_END_LABEL,
+  ROAD_POINTS,
+  ROAD_START_LABEL,
+} from '../data/vodnoRoad'
 import type { RoadReport } from '../types/api'
 
 /**
- * Schematic map of the road up to Sredno Vodno.
+ * Map of the real road from Skopje up to Sredno Vodno.
  *
- * Reports are projected from their WGS84 coordinates and snapped onto the
- * drawn road, so a marker always sits on the tarmac. It is deliberately not a
- * real tile map, which keeps the frontend free of an external map dependency
- * and of any runtime network call to a third party.
+ * The centreline is the actual OpenStreetMap geometry, committed to the repo
+ * by scripts/fetch-road-geometry.py, so the shape on screen is the shape of
+ * the road. Coordinates are drawn with a local equirectangular projection at a
+ * single uniform scale, which keeps the hairpins undistorted. Nothing is
+ * fetched at runtime: no tile server, no API key, no third-party request.
  */
-const BOUNDS = { minLat: 41.985, maxLat: 42.003, minLon: 21.393, maxLon: 21.417 }
-const WIDTH = 640
-const HEIGHT = 292
+const WIDTH = 580
+const PADDING_X = 58
+const PADDING_Y = 34
 
-// The road as a polyline, from the city end (bottom right) up to the summit.
-const ROAD: Array<[number, number]> = [
-  [604, 252], // Skopje / Vodno base
-  [520, 247],
-  [300, 237],
-  [150, 219],
-  [96, 196], // hairpin
-  [150, 172],
-  [330, 164],
-  [500, 152],
-  [556, 128], // hairpin
-  [500, 104],
-  [320, 96],
-  [170, 86],
-  [108, 64], // hairpin
-  [150, 44],
-  [252, 40], // Sredno Vodno
-]
+const MEAN_LAT = (ROAD_BOUNDS.minLat + ROAD_BOUNDS.maxLat) / 2
+const METRES_PER_DEG_LAT = 111_320
+const METRES_PER_DEG_LON = 111_320 * Math.cos((MEAN_LAT * Math.PI) / 180)
 
-const ROAD_PATH = ROAD.map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ')
+const SPAN_X_M = (ROAD_BOUNDS.maxLon - ROAD_BOUNDS.minLon) * METRES_PER_DEG_LON
+const SPAN_Y_M = (ROAD_BOUNDS.maxLat - ROAD_BOUNDS.minLat) * METRES_PER_DEG_LAT
 
-const clamp = (value: number) => Math.min(1, Math.max(0, value))
+// One scale for both axes, so 100 m east is the same length as 100 m north.
+const SCALE = (WIDTH - 2 * PADDING_X) / SPAN_X_M
+const HEIGHT = SPAN_Y_M * SCALE + 2 * PADDING_Y
 
-/** Fraction along the climb: 0 at the city end, 1 at Sredno Vodno. */
-function progress(latitude: number, longitude: number): number {
-  const north = clamp((latitude - BOUNDS.minLat) / (BOUNDS.maxLat - BOUNDS.minLat))
-  const west = clamp((BOUNDS.maxLon - longitude) / (BOUNDS.maxLon - BOUNDS.minLon))
-  return (north + west) / 2
+interface Point {
+  x: number
+  y: number
 }
 
-const SEGMENTS = ROAD.slice(1).map(([x, y], index) =>
-  Math.hypot(x - ROAD[index][0], y - ROAD[index][1]),
-)
-const TOTAL_LENGTH = SEGMENTS.reduce((sum, length) => sum + length, 0)
-
-function pointAt(fraction: number): { x: number; y: number } {
-  let remaining = clamp(fraction) * TOTAL_LENGTH
-  for (let index = 0; index < SEGMENTS.length; index += 1) {
-    const length = SEGMENTS[index]
-    if (remaining <= length || index === SEGMENTS.length - 1) {
-      const ratio = length === 0 ? 0 : Math.min(1, remaining / length)
-      const [x1, y1] = ROAD[index]
-      const [x2, y2] = ROAD[index + 1]
-      return { x: x1 + (x2 - x1) * ratio, y: y1 + (y2 - y1) * ratio }
-    }
-    remaining -= length
+function project(latitude: number, longitude: number): Point {
+  return {
+    x: PADDING_X + (longitude - ROAD_BOUNDS.minLon) * METRES_PER_DEG_LON * SCALE,
+    y: PADDING_Y + (ROAD_BOUNDS.maxLat - latitude) * METRES_PER_DEG_LAT * SCALE,
   }
-  return { x: ROAD[0][0], y: ROAD[0][1] }
+}
+
+const ROAD_XY: Point[] = ROAD_POINTS.map(([lat, lon]) => project(lat, lon))
+const ROAD_PATH = ROAD_XY.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
+
+const START = ROAD_XY[0]
+const END = ROAD_XY[ROAD_XY.length - 1]
+
+/** Cumulative length along the drawn road, in SVG units. */
+const CUMULATIVE: number[] = ROAD_XY.reduce<number[]>((acc, point, index) => {
+  acc.push(index === 0 ? 0 : acc[index - 1] + Math.hypot(point.x - ROAD_XY[index - 1].x, point.y - ROAD_XY[index - 1].y))
+  return acc
+}, [])
+const TOTAL_LENGTH = CUMULATIVE[CUMULATIVE.length - 1]
+const PX_PER_METRE = SCALE
+const KM_IN_PX = 1000 * PX_PER_METRE
+
+/** Point at a given distance along the road, for the kilometre ticks. */
+function pointAtLength(distance: number): Point {
+  for (let i = 1; i < CUMULATIVE.length; i += 1) {
+    if (CUMULATIVE[i] >= distance) {
+      const segment = CUMULATIVE[i] - CUMULATIVE[i - 1]
+      const t = segment === 0 ? 0 : (distance - CUMULATIVE[i - 1]) / segment
+      const a = ROAD_XY[i - 1]
+      const b = ROAD_XY[i]
+      return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+    }
+  }
+  return ROAD_XY[ROAD_XY.length - 1]
+}
+
+const KM_TICKS = Array.from({ length: Math.floor(TOTAL_LENGTH / KM_IN_PX) }, (_, index) => ({
+  km: index + 1,
+  ...pointAtLength((index + 1) * KM_IN_PX),
+}))
+
+/**
+ * Nearest point on the road to a reported position.
+ *
+ * A rider marks a spot from the saddle or from memory, so a report can sit a
+ * few metres off the centreline. Snapping keeps every marker on the tarmac.
+ */
+function snapToRoad(latitude: number, longitude: number): Point {
+  const target = project(latitude, longitude)
+  let best = ROAD_XY[0]
+  let bestDistance = Infinity
+
+  for (let i = 1; i < ROAD_XY.length; i += 1) {
+    const a = ROAD_XY[i - 1]
+    const b = ROAD_XY[i]
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const lengthSquared = dx * dx + dy * dy
+    const t =
+      lengthSquared === 0
+        ? 0
+        : Math.max(0, Math.min(1, ((target.x - a.x) * dx + (target.y - a.y) * dy) / lengthSquared))
+    const candidate = { x: a.x + dx * t, y: a.y + dy * t }
+    const distance = Math.hypot(target.x - candidate.x, target.y - candidate.y)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      best = candidate
+    }
+  }
+
+  return best
 }
 
 function markerColor(report: RoadReport): string {
@@ -71,21 +118,32 @@ function markerColor(report: RoadReport): string {
   return 'var(--ok)'
 }
 
-function Endpoint({ x, y, label, anchor }: { x: number; y: number; label: string; anchor: 'start' | 'end' }) {
+function EndpointDot({ point }: { point: Point }) {
   return (
-    <g>
-      <circle cx={x} cy={y} r="4.5" fill="var(--surface)" stroke="var(--text-3)" strokeWidth="2" />
-      <text
-        x={anchor === 'end' ? x - 9 : x + 10}
-        y={y + 4}
-        textAnchor={anchor}
-        fill="var(--text-2)"
-        fontSize="11.5"
-        fontWeight="600"
-      >
-        {label}
-      </text>
-    </g>
+    <circle cx={point.x} cy={point.y} r="5" fill="var(--surface)" stroke="var(--text-2)" strokeWidth="2.5" />
+  )
+}
+
+/**
+ * Endpoint captions are drawn above the point and last of all, with a halo, so
+ * a marker sitting on the same spot cannot obscure them.
+ */
+function EndpointLabel({ point, label }: { point: Point; label: string }) {
+  const anchor = point.x > WIDTH / 2 ? 'end' : 'start'
+  return (
+    <text
+      x={point.x + (anchor === 'end' ? 7 : -7)}
+      y={point.y - 16}
+      textAnchor={anchor}
+      fill="var(--text-2)"
+      fontSize="12"
+      fontWeight="650"
+      stroke="var(--surface)"
+      strokeWidth="3.5"
+      paintOrder="stroke"
+    >
+      {label}
+    </text>
   )
 }
 
@@ -101,50 +159,46 @@ export function RoadMap({
   return (
     <svg
       className="roadmap"
-      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      viewBox={`0 0 ${WIDTH} ${HEIGHT.toFixed(0)}`}
       role="img"
-      aria-label="Schematic map of the Sredno Vodno road with reported conditions"
+      aria-label="Map of the road from Skopje up to Sredno Vodno with reported conditions"
     >
       <defs>
-        {/* Barely-there altitude wash: cooler towards the summit. */}
-        <linearGradient id="hillside" x1="0" y1="1" x2="0.15" y2="0">
+        <linearGradient id="hillside" x1="0" y1="1" x2="0.2" y2="0">
           <stop offset="0%" stopColor="var(--surface-2)" />
           <stop offset="100%" stopColor="var(--bg-tint)" />
         </linearGradient>
       </defs>
       <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="url(#hillside)" />
 
-      <path
-        d={ROAD_PATH}
-        stroke="var(--road-edge)"
-        strokeWidth="20"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d={ROAD_PATH}
-        stroke="var(--road)"
-        strokeWidth="16"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {/* Road: dark casing, tarmac, centre line. */}
+      <path d={ROAD_PATH} stroke="var(--road-edge)" strokeWidth="11" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={ROAD_PATH} stroke="var(--road)" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       <path
         d={ROAD_PATH}
         stroke="var(--road-line)"
-        strokeWidth="2"
-        strokeDasharray="11 13"
+        strokeWidth="1.4"
+        strokeDasharray="7 8"
         fill="none"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
 
-      <Endpoint x={ROAD[0][0]} y={ROAD[0][1]} label="Skopje" anchor="end" />
-      <Endpoint x={ROAD.at(-1)![0]} y={ROAD.at(-1)![1]} label="Sredno Vodno" anchor="start" />
+      {/* Kilometre markers along the real centreline. */}
+      {KM_TICKS.map((tick) => (
+        <g key={tick.km}>
+          <circle cx={tick.x} cy={tick.y} r="7.5" fill="var(--surface)" stroke="var(--border-strong)" strokeWidth="1.2" />
+          <text x={tick.x} y={tick.y + 3.2} textAnchor="middle" fontSize="8.5" fontWeight="650" fill="var(--text-3)">
+            {tick.km}
+          </text>
+        </g>
+      ))}
+
+      <EndpointDot point={START} />
+      <EndpointDot point={END} />
 
       {reports.map((report) => {
-        const { x, y } = pointAt(progress(report.latitude, report.longitude))
+        const { x, y } = snapToRoad(report.latitude, report.longitude)
         const active = selectedId === report.id
         const color = markerColor(report)
         return (
@@ -158,22 +212,21 @@ export function RoadMap({
               {CATEGORY_LABELS[report.category]} · {SEVERITY_LABELS[report.severity]} —{' '}
               {report.description}
             </title>
-            <circle cx={x} cy={y} r={active ? 21 : 17} fill={color} opacity={active ? 0.22 : 0.13} />
+            <circle cx={x} cy={y} r={active ? 20 : 16} fill={color} opacity={active ? 0.22 : 0.13} />
             <circle
               cx={x}
               cy={y}
-              r="12"
+              r="11"
               fill={color}
               stroke="var(--surface)"
               strokeWidth="2.5"
               style={{ filter: 'drop-shadow(0 1px 2px rgba(19,26,41,.25))' }}
             />
-            {/* Nested SVG: renders the category glyph inside the marker. */}
             <Icon
               name={CATEGORY_ICONS[report.category]}
-              size={13}
-              x={x - 6.5}
-              y={y - 6.5}
+              size={12}
+              x={x - 6}
+              y={y - 6}
               stroke="var(--surface)"
               strokeWidth={2.2}
               style={{ pointerEvents: 'none' }}
@@ -181,6 +234,13 @@ export function RoadMap({
           </g>
         )
       })}
+
+      <EndpointLabel point={START} label={ROAD_START_LABEL} />
+      <EndpointLabel point={END} label={ROAD_END_LABEL} />
+
+      <text x={WIDTH - 8} y={HEIGHT - 7} textAnchor="end" fontSize="9" fill="var(--text-3)">
+        {ROAD_ATTRIBUTION}
+      </text>
     </svg>
   )
 }
@@ -199,6 +259,9 @@ export function MapLegend() {
       </span>
       <span>
         <i style={{ background: 'var(--text-3)' }} /> Resolved
+      </span>
+      <span className="faint" style={{ marginLeft: 'auto' }}>
+        ① … ⑤ kilometres from the foot of the climb
       </span>
     </div>
   )

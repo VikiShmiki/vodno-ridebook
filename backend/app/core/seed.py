@@ -15,41 +15,43 @@ from app.models import Motorcycle, Ride, RoadReport
 
 logger = logging.getLogger(__name__)
 
-# Coordinates along the road from Skopje up to Sredno Vodno.
+# Real coordinates on the road up to Sredno Vodno, taken from the same
+# OpenStreetMap centreline the frontend draws. The trailing comment gives the
+# distance from the foot of the climb.
 _REPORTS = [
     (
-        "gravel",
-        41.9906,
-        21.4098,
-        "Loose gravel spread across the outside of the second hairpin.",
-        "high",
-    ),
-    (
         "damaged_asphalt",
-        41.9938,
-        21.4051,
-        "Pothole in the right wheel track just after the bus stop.",
-        "medium",
-    ),
-    (
-        "wet_road",
-        41.9971,
-        21.3999,
-        "Water running across the road from the spring, slippery in the shade.",
+        41.98268,
+        21.42167,  # 0.8 km
+        "Pothole in the right wheel track on the first long straight.",
         "medium",
     ),
     (
         "roadworks",
-        41.9885,
-        21.4143,
-        "Single lane traffic control near the lower parking area.",
+        41.97708,
+        21.42646,  # 1.7 km
+        "Single lane traffic control, roughly two kilometres up.",
         "low",
     ),
     (
+        "gravel",
+        41.97459,
+        21.42797,  # 2.6 km
+        "Loose gravel washed across the outside of the hairpin.",
+        "high",
+    ),
+    (
+        "wet_road",
+        41.97599,
+        21.41634,  # 4.5 km
+        "Water running across the road in the shaded section near the top.",
+        "medium",
+    ),
+    (
         "animals",
-        42.0012,
-        21.3958,
-        "Stray dogs on the roadside close to the upper viewpoint.",
+        41.97568,
+        21.40853,  # 5.2 km, Sredno Vodno
+        "Stray dogs on the roadside by the Sredno Vodno parking area.",
         "medium",
     ),
 ]

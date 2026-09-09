@@ -8,8 +8,8 @@ import { CATEGORY_ICONS, CATEGORY_LABELS, SEVERITY_LABELS, timeAgo } from '../co
 import { Badge, Card, EmptyState, ErrorNote, Skeleton, SuccessNote } from '../components/ui'
 import { REPORT_CATEGORIES, SEVERITIES, type ReportCategory, type Severity } from '../types/api'
 
-// Roughly the middle of the climb, used as the default pin position.
-const DEFAULT_POSITION = { latitude: '41.9938', longitude: '21.4051' }
+// A real point on the road, about 1.7 km up, used as the default pin.
+const DEFAULT_POSITION = { latitude: '41.97708', longitude: '21.42646' }
 
 export function Reports() {
   const [showResolved, setShowResolved] = useState(false)

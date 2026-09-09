@@ -29,6 +29,7 @@ and rolling updates.
 - [CI/CD](#cicd)
 - [Kubernetes deployment](#kubernetes-deployment)
 - [Demonstrations](#demonstrations)
+- [Map data and attribution](#map-data-and-attribution)
 - [Documentation](#documentation)
 
 ---
@@ -112,9 +113,10 @@ vodno-ridebook/
 ├── frontend/               React + Vite application
 │   ├── src/
 │   │   ├── api/            REST client and data hooks
-│   │   ├── components/     shared UI and the schematic road map
+│   │   ├── components/     shared UI, icon set and the road map
 │   │   ├── pages/          Dashboard, Ride log, Road reports, Statistics
 │   │   └── test/           Vitest suite
+│   ├── src/data/           generated road geometry (OpenStreetMap)
 │   ├── nginx/              runtime nginx config template
 │   └── Dockerfile
 ├── k8s/                    Kubernetes manifests
@@ -336,6 +338,24 @@ recorded output are in **[docs/demos.md](docs/demos.md)**.
 | 6 | **Self-healing**           | `./scripts/demo-self-healing.sh`         |
 | 7 | **Database persistence**   | `./scripts/demo-persistence.sh`          |
 | 8 | **Rolling update**         | `./scripts/demo-rolling-update.sh v2`    |
+
+---
+
+## Map data and attribution
+
+The map is not a decorative squiggle: it draws the **real centreline of the
+road** up to Sredno Vodno, derived from **OpenStreetMap** data
+(© OpenStreetMap contributors, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/)).
+
+The geometry is fetched once and committed to the repository, so the running
+application never calls a third-party service and the build works offline:
+
+```bash
+python3 scripts/fetch-road-geometry.py   # rewrites frontend/src/data/vodnoRoad.ts
+```
+
+The 5.25 km climb is stored as 100 points, simplified with Douglas-Peucker to
+under one pixel of error at the size the map is drawn.
 
 ---
 

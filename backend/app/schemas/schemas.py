@@ -62,9 +62,11 @@ class RideRead(RideCreate):
 
 class RoadReportCreate(BaseModel):
     category: ReportCategory
-    # Bounding box loosely around the Sredno Vodno road in Skopje.
-    latitude: float = Field(ge=41.95, le=42.05)
-    longitude: float = Field(ge=21.35, le=21.50)
+    # Bounding box around the real road up to Sredno Vodno (the OpenStreetMap
+    # centreline spans 41.9727..41.9881 N, 21.4085..21.4288 E), widened by
+    # roughly 600 m so a report taken slightly off the centreline still fits.
+    latitude: float = Field(ge=41.965, le=41.995)
+    longitude: float = Field(ge=21.400, le=21.436)
     description: str = Field(min_length=1, max_length=1000)
     severity: Severity = Severity.MEDIUM
 

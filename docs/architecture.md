@@ -163,11 +163,13 @@ paths each service genuinely needs — `/tmp` for the backend, and
 Three choices keep the running application self-contained, which matters for a
 cluster with no internet egress and makes the deployment reproducible:
 
-- The road reports page draws the road as an **SVG polyline** and snaps each
-  report onto it by projecting its coordinates, instead of loading map tiles.
-  That avoids an external dependency, an API key and roughly 150 kB of
-  JavaScript, and suits a project whose focus is the delivery pipeline rather
-  than cartography.
+- The road reports page draws the **real centreline** of the climb as an SVG
+  polyline instead of loading map tiles. The geometry is the actual
+  OpenStreetMap shape of the road, fetched once by
+  `scripts/fetch-road-geometry.py` and committed to
+  `frontend/src/data/vodnoRoad.ts`. That gives an accurate map with no tile
+  server, no API key and no runtime request — the trade-off is that the road
+  is drawn without surrounding streets or terrain.
 - Icons are an **inline SVG set** in `src/components/Icon.tsx`, so there is no
   icon font or icon library to install or fetch.
 - The **Inter webfont is vendored** into `src/assets/fonts` (three subsets,

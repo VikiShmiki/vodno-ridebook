@@ -102,41 +102,63 @@ export function Dashboard() {
           <MapLegend />
         </Card>
 
-        <Card
-          title="Latest road conditions"
-          icon="reports"
-          flush
-          action={<Badge tone={condition.tone} dot>{condition.text}</Badge>}
-        >
-          {reports.loading ? (
-            <div style={{ padding: 'var(--sp-5)' }}>
-              <Skeleton lines={4} />
-            </div>
-          ) : openReports.length === 0 ? (
-            <EmptyState icon="check">Nothing reported right now. Enjoy the ride.</EmptyState>
-          ) : (
-            <ul className="list hoverable">
-              {openReports.slice(0, 5).map((report) => (
-                <li key={report.id}>
-                  <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
-                    <span className={`icon-chip ${report.severity}`}>
-                      <Icon name={CATEGORY_ICONS[report.category]} size={15} />
-                    </span>
-                    <div>
-                      <div className="item-title">{CATEGORY_LABELS[report.category]}</div>
-                      <div className="meta">{report.description}</div>
+        <div className="stack">
+          <Card
+            title="Latest road conditions"
+            icon="reports"
+            flush
+            action={<Badge tone={condition.tone} dot>{condition.text}</Badge>}
+          >
+            {reports.loading ? (
+              <div style={{ padding: 'var(--sp-5)' }}>
+                <Skeleton lines={4} />
+              </div>
+            ) : openReports.length === 0 ? (
+              <EmptyState icon="check">Nothing reported right now. Enjoy the ride.</EmptyState>
+            ) : (
+              <ul className="list hoverable">
+                {openReports.slice(0, 5).map((report) => (
+                  <li key={report.id}>
+                    <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+                      <span className={`icon-chip ${report.severity}`}>
+                        <Icon name={CATEGORY_ICONS[report.category]} size={15} />
+                      </span>
+                      <div>
+                        <div className="item-title">{CATEGORY_LABELS[report.category]}</div>
+                        <div className="meta">{report.description}</div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="item-side">
-                    <Badge tone={report.severity}>{SEVERITY_LABELS[report.severity]}</Badge>
-                    <span className="meta faint">{timeAgo(report.created_at)}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+                    <div className="item-side">
+                      <Badge tone={report.severity}>{SEVERITY_LABELS[report.severity]}</Badge>
+                      <span className="meta faint">{timeAgo(report.created_at)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
 
+          <Card title="Average ratings" icon="stats">
+            {stats.loading || !stats.data ? (
+              <Skeleton lines={4} />
+            ) : (
+              <>
+                <RatingBar label="Road quality" value={stats.data.avg_road_quality} />
+                <RatingBar label="Traffic" value={stats.data.avg_traffic} />
+                <RatingBar label="Cleanliness" value={stats.data.avg_cleanliness} />
+                <RatingBar label="Enjoyment" value={stats.data.avg_enjoyment} />
+                {rides.data?.[0]?.notes && (
+                  <p className="meta" style={{ marginTop: 'var(--sp-4)', color: 'var(--text-2)' }}>
+                    Latest note: “{rides.data[0].notes}”
+                  </p>
+                )}
+              </>
+            )}
+          </Card>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 'var(--sp-4)' }}>
         <Card
           title="Recent rides"
           icon="rides"
@@ -177,24 +199,6 @@ export function Dashboard() {
                 </li>
               ))}
             </ul>
-          )}
-        </Card>
-
-        <Card title="Average ratings" icon="stats">
-          {stats.loading || !stats.data ? (
-            <Skeleton lines={4} />
-          ) : (
-            <>
-              <RatingBar label="Road quality" value={stats.data.avg_road_quality} />
-              <RatingBar label="Traffic" value={stats.data.avg_traffic} />
-              <RatingBar label="Cleanliness" value={stats.data.avg_cleanliness} />
-              <RatingBar label="Enjoyment" value={stats.data.avg_enjoyment} />
-              {rides.data?.[0]?.notes && (
-                <p className="meta" style={{ marginTop: 'var(--sp-4)', color: 'var(--text-2)' }}>
-                  Latest note: “{rides.data[0].notes}”
-                </p>
-              )}
-            </>
           )}
         </Card>
       </div>

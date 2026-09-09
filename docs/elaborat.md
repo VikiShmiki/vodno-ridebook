@@ -77,12 +77,14 @@ The system is a conventional three-tier application.
 React 19 with Vite and TypeScript, using React Router for four pages —
 Dashboard, Ride log, Road reports and Statistics. There is no state-management
 library; a small `useAsync` hook handles loading, error and reload state for
-each fetch. Road reports are drawn on a schematic SVG map of the climb, each
-report projected from its coordinates and snapped onto the drawn road — chosen
-over a tile map to avoid an external dependency, an API key and roughly 150 kB
-of JavaScript. The icon set is inline SVG and the Inter webfont is served from
-the image itself, so the running application makes no request to any third
-party.
+each fetch. Road reports are drawn on an SVG map whose centreline is the
+**real OpenStreetMap geometry** of the climb — 100 points, simplified to under
+one pixel of error, committed to the repository by
+`scripts/fetch-road-geometry.py` and projected at a single uniform scale so the
+hairpins are undistorted. Reports are snapped to the nearest point on that
+line. Drawing the road rather than loading map tiles avoids an API key and a
+runtime dependency; likewise the icons are inline SVG and the Inter webfont is
+served from the image, so the application makes no third-party request.
 
 ### Backend
 
