@@ -361,14 +361,15 @@ under one pixel of error at the size the map is drawn.
 
 ## Documentation
 
-- **[docs/elaborat.md](docs/elaborat.md)** — the project report (the graded deliverable),
-  also rendered to [`docs/elaborat.pdf`](docs/elaborat.pdf) (10 pages)
+- **[docs/elaborat.pdf](docs/elaborat.pdf)** — the project report, the graded
+  deliverable (9 pages). Source: [`docs/elaborat.tex`](docs/elaborat.tex)
 - **[docs/demos.md](docs/demos.md)** — full demonstration guide with recorded output
 - **[docs/architecture.md](docs/architecture.md)** — diagrams and design decisions
 
-Rebuild the PDF after editing the report:
+The report is written in LaTeX and compiled with XeLaTeX, which is needed
+because the architecture diagrams use Unicode box-drawing characters:
 
 ```bash
-python3 -m pip install markdown
-./scripts/build-elaborat.sh
+sudo apt install texlive-xetex texlive-latex-extra fonts-dejavu   # once
+./scripts/build-elaborat.sh                                       # -> docs/elaborat.pdf
 ```
