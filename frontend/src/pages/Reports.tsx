@@ -3,13 +3,13 @@ import { useState } from 'react'
 import { createReport, deleteReport, listReports, resolveReport } from '../api/endpoints'
 import { useAsync } from '../api/useAsync'
 import { Icon } from '../components/Icon'
-import { MapLegend, RoadMap } from '../components/RoadMap'
+import { MapLegend, RoadMap, type RoadPosition } from '../components/RoadMap'
 import { CATEGORY_ICONS, CATEGORY_LABELS, SEVERITY_LABELS, timeAgo } from '../components/labels'
 import { Badge, Card, EmptyState, ErrorNote, Skeleton, SuccessNote } from '../components/ui'
 import { REPORT_CATEGORIES, SEVERITIES, type ReportCategory, type Severity } from '../types/api'
 
-// A real point on the road, about 1.7 km up, used as the default pin.
-const DEFAULT_POSITION = { latitude: '41.97708', longitude: '21.42646' }
+// A real point on the road, about 1.7 km up, where the pin starts.
+const DEFAULT_POSITION = { latitude: 41.97708, longitude: 21.42646 }
 
 export function Reports() {
   const [showResolved, setShowResolved] = useState(false)
@@ -19,8 +19,9 @@ export function Reports() {
     category: 'gravel' as ReportCategory,
     severity: 'medium' as Severity,
     description: '',
-    ...DEFAULT_POSITION,
   })
+  const [position, setPosition] = useState(DEFAULT_POSITION)
+  const [km, setKm] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -35,8 +36,8 @@ export function Reports() {
         category: form.category,
         severity: form.severity,
         description: form.description.trim(),
-        latitude: Number(form.latitude),
-        longitude: Number(form.longitude),
+        latitude: Number(position.latitude.toFixed(5)),
+        longitude: Number(position.longitude.toFixed(5)),
       })
       setForm({ ...form, description: '' })
       setSaved(true)
@@ -46,6 +47,13 @@ export function Reports() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  /** A click on the map is snapped to the road and becomes the report position. */
+  function placePin(picked: RoadPosition) {
+    setPosition({ latitude: picked.latitude, longitude: picked.longitude })
+    setKm(picked.km)
+    setSaved(false)
   }
 
   async function toggleResolved(id: number, resolved: boolean) {
@@ -82,13 +90,30 @@ export function Reports() {
             </label>
           }
         >
-          <RoadMap reports={items} selectedId={selectedId} onSelect={(r) => setSelectedId(r.id)} />
+          <RoadMap reports={items} selectedId={selectedId} onPick={placePin} pin={position} />
           <MapLegend />
         </Card>
 
         <div className="stack">
           <Card title="Report a condition" icon="pin">
             <form onSubmit={submit}>
+              <p className="pick-hint" style={{ marginBottom: 'var(--sp-3)' }}>
+                <Icon name="pin" size={14} />
+                Click the map to place the pin, then describe what you found.
+              </p>
+
+              <div className="pick-readout" style={{ marginBottom: 'var(--sp-4)' }}>
+                <span className="where">
+                  <Icon name="route" size={14} />
+                  {km === null
+                    ? 'Default spot — click the map to move it'
+                    : `${km.toFixed(1)} km up the climb`}
+                </span>
+                <span className="coords">
+                  {position.latitude.toFixed(5)}, {position.longitude.toFixed(5)}
+                </span>
+              </div>
+
               <div className="form-grid">
                 <label className="field">
                   <span className="label">Category</span>
@@ -120,26 +145,6 @@ export function Reports() {
                     ))}
                   </select>
                 </label>
-                <label className="field">
-                  <span className="label">Latitude</span>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    required
-                    value={form.latitude}
-                    onChange={(event) => setForm({ ...form, latitude: event.target.value })}
-                  />
-                </label>
-                <label className="field">
-                  <span className="label">Longitude</span>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    required
-                    value={form.longitude}
-                    onChange={(event) => setForm({ ...form, longitude: event.target.value })}
-                  />
-                </label>
                 <label className="field full">
                   <span className="label">Description</span>
                   <textarea
@@ -150,6 +155,36 @@ export function Reports() {
                   />
                 </label>
               </div>
+
+              <details className="manual">
+                <summary>Enter coordinates manually</summary>
+                <div className="form-grid">
+                  <label className="field">
+                    <span className="label">Latitude</span>
+                    <input
+                      type="number"
+                      step="0.00001"
+                      value={position.latitude}
+                      onChange={(event) => {
+                        setPosition({ ...position, latitude: Number(event.target.value) })
+                        setKm(null)
+                      }}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="label">Longitude</span>
+                    <input
+                      type="number"
+                      step="0.00001"
+                      value={position.longitude}
+                      onChange={(event) => {
+                        setPosition({ ...position, longitude: Number(event.target.value) })
+                        setKm(null)
+                      }}
+                    />
+                  </label>
+                </div>
+              </details>
 
               <div className="form-actions">
                 <button className="primary" type="submit" disabled={submitting}>

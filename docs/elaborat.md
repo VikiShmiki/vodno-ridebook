@@ -82,8 +82,9 @@ each fetch. Road reports are drawn on an SVG map whose centreline is the
 one pixel of error, committed to the repository by
 `scripts/fetch-road-geometry.py` and projected at a single uniform scale so the
 hairpins are undistorted. Reports are snapped to the nearest point on that
-line. Drawing the road rather than loading map tiles avoids an API key and a
-runtime dependency; likewise the icons are inline SVG and the Inter webfont is
+line, and a rider files one by clicking the map rather than typing
+coordinates. Drawing the road rather than loading map tiles avoids an API key
+and a runtime dependency; likewise the icons are inline SVG and the Inter webfont is
 served from the image, so the application makes no third-party request.
 
 ### Backend
@@ -630,8 +631,8 @@ that runs in Kubernetes.
 - **Argo CD** — moving to GitOps would remove the ordering constraint between
   `kubectl apply` and `kubectl set image`.
 - **A highly available database**, for example via the CloudNativePG operator.
-- **Real map tiles and GPS capture**, so a rider can report a hazard from the
-  roadside instead of typing coordinates.
+- **GPS capture on a phone**, so a report can be filed at the roadside without
+  finding the spot on the map first.
 
 ### Conclusion
 

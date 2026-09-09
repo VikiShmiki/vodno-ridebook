@@ -961,3 +961,90 @@ td.actions {
     grid-template-columns: 92px 1fr 30px;
   }
 }
+
+/* --- map pick mode ------------------------------------------------------ */
+
+.roadmap.pickable {
+  cursor: crosshair;
+}
+
+.roadmap .pin-marker {
+  pointer-events: none;
+  animation: pin-drop var(--dur-slow) var(--ease);
+  transform-origin: center;
+}
+
+@keyframes pin-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.pick-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.pick-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  font-size: var(--fs-sm);
+  flex-wrap: wrap;
+}
+
+.pick-readout .where {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+.pick-readout .coords {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+details.manual > summary {
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  padding: 0.2rem 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+details.manual > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.manual > summary::before {
+  content: "▸";
+  font-size: 0.7em;
+  transition: transform var(--dur) var(--ease);
+}
+
+details.manual[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+details.manual > summary:hover {
+  color: var(--text);
+}
+
+details.manual .form-grid {
+  margin-top: var(--sp-3);
+}

@@ -176,6 +176,20 @@ cluster with no internet egress and makes the deployment reproducible:
   152 kB total) and hashed into the bundle by Vite, rather than loaded from a
   font CDN.
 
+### Placing a report by clicking
+
+Typing a latitude and a longitude is a poor way to mark a pothole, so the map
+is the input. A click anywhere on it is converted from screen coordinates into
+the drawing's coordinate space, snapped to the nearest point on the real
+centreline, and turned back into WGS84 with the inverse of the projection used
+to draw the road. The form shows the resulting position both as coordinates and
+as a distance along the climb ("2.6 km up"), which is far easier to sanity-check
+than six decimal places.
+
+Because the snap always lands on the centreline, a report can never be filed
+somewhere the road does not go. Manual entry stays available behind a
+disclosure for precision and for keyboard-only use.
+
 ### Styling
 
 Styles are hand-written CSS in three layers — `tokens.css` (every colour,

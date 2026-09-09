@@ -38,6 +38,14 @@ interface Point {
   y: number
 }
 
+/** A place on the road: where to draw it, where it is, and how far up it is. */
+export interface RoadPosition extends Point {
+  latitude: number
+  longitude: number
+  /** Distance from the foot of the climb, in kilometres. */
+  km: number
+}
+
 function project(latitude: number, longitude: number): Point {
   return {
     x: PADDING_X + (longitude - ROAD_BOUNDS.minLon) * METRES_PER_DEG_LON * SCALE,
@@ -79,16 +87,24 @@ const KM_TICKS = Array.from({ length: Math.floor(TOTAL_LENGTH / KM_IN_PX) }, (_,
   ...pointAtLength((index + 1) * KM_IN_PX),
 }))
 
+function unproject(x: number, y: number): { latitude: number; longitude: number } {
+  return {
+    longitude: ROAD_BOUNDS.minLon + (x - PADDING_X) / (METRES_PER_DEG_LON * SCALE),
+    latitude: ROAD_BOUNDS.maxLat - (y - PADDING_Y) / (METRES_PER_DEG_LAT * SCALE),
+  }
+}
+
 /**
- * Nearest point on the road to a reported position.
+ * Nearest point on the road to an arbitrary point in the drawing.
  *
- * A rider marks a spot from the saddle or from memory, so a report can sit a
- * few metres off the centreline. Snapping keeps every marker on the tarmac.
+ * Used both for placing existing reports - a rider marks a spot from the
+ * saddle, so it can sit a few metres off the centreline - and for turning a
+ * click anywhere on the map into a position on the tarmac.
  */
-function snapToRoad(latitude: number, longitude: number): Point {
-  const target = project(latitude, longitude)
+export function nearestOnRoad(target: Point): RoadPosition {
   let best = ROAD_XY[0]
   let bestDistance = Infinity
+  let bestAlong = 0
 
   for (let i = 1; i < ROAD_XY.length; i += 1) {
     const a = ROAD_XY[i - 1]
@@ -105,10 +121,21 @@ function snapToRoad(latitude: number, longitude: number): Point {
     if (distance < bestDistance) {
       bestDistance = distance
       best = candidate
+      bestAlong = CUMULATIVE[i - 1] + t * Math.sqrt(lengthSquared)
     }
   }
 
-  return best
+  return {
+    ...best,
+    ...unproject(best.x, best.y),
+    // CUMULATIVE is in drawing units; SCALE converts back to metres.
+    km: bestAlong / SCALE / 1000,
+  }
+}
+
+/** Convenience wrapper for a report that already has coordinates. */
+export function snapCoordinates(latitude: number, longitude: number): RoadPosition {
+  return nearestOnRoad(project(latitude, longitude))
 }
 
 /**
@@ -164,17 +191,48 @@ export function RoadMap({
   reports,
   selectedId,
   onSelect,
+  onPick,
+  pin,
 }: {
   reports: RoadReport[]
   selectedId?: number | null
   onSelect?: (report: RoadReport) => void
+  /** Enables pick mode: a click anywhere returns the nearest spot on the road. */
+  onPick?: (position: RoadPosition) => void
+  /** Coordinates of the pin being placed, drawn on top of the reports. */
+  pin?: { latitude: number; longitude: number } | null
 }) {
+  const pickable = Boolean(onPick)
+
+  /** Translate a click into drawing coordinates, then onto the road. */
+  function pick(event: { clientX: number; clientY: number; currentTarget: SVGSVGElement }) {
+    if (!onPick) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    if (!rect.width || !rect.height) return
+    // The element always keeps the viewBox aspect ratio (width:100%, height:auto),
+    // so the viewBox maps onto the box linearly and this scaling is exact.
+    onPick(
+      nearestOnRoad({
+        x: ((event.clientX - rect.left) / rect.width) * WIDTH,
+        y: ((event.clientY - rect.top) / rect.height) * HEIGHT,
+      }),
+    )
+  }
+
+  const pinAt = pin ? snapCoordinates(pin.latitude, pin.longitude) : null
+
   return (
     <svg
-      className="roadmap"
+      className={pickable ? 'roadmap pickable' : 'roadmap'}
       viewBox={`0 0 ${WIDTH} ${HEIGHT.toFixed(0)}`}
-      role="img"
-      aria-label="Map of the road from Skopje up to Sredno Vodno with reported conditions"
+      role={pickable ? 'button' : 'img'}
+      tabIndex={pickable ? 0 : undefined}
+      aria-label={
+        pickable
+          ? 'Map of the road up to Sredno Vodno. Click the road to place the report pin.'
+          : 'Map of the road from Skopje up to Sredno Vodno with reported conditions'
+      }
+      onClick={pickable ? pick : undefined}
     >
       <defs>
         {/* North (Skopje) is at the top of the frame and the mountain rises
@@ -225,7 +283,7 @@ export function RoadMap({
       <EndpointDot point={END} />
 
       {reports.map((report) => {
-        const { x, y } = snapToRoad(report.latitude, report.longitude)
+        const { x, y } = snapCoordinates(report.latitude, report.longitude)
         const active = selectedId === report.id
         const color = markerColor(report)
         return (
@@ -261,6 +319,21 @@ export function RoadMap({
           </g>
         )
       })}
+
+      {pinAt && (
+        <g className="pin-marker" aria-hidden="true">
+          <circle cx={pinAt.x} cy={pinAt.y} r="19" fill="var(--accent)" opacity="0.16" />
+          <circle cx={pinAt.x} cy={pinAt.y} r="10.5" fill="var(--accent)" opacity="0.28" />
+          <path
+            d={`M ${pinAt.x} ${pinAt.y - 30} a 9.5 9.5 0 0 1 9.5 9.5 c 0 6.6 -9.5 20.5 -9.5 20.5 s -9.5 -13.9 -9.5 -20.5 a 9.5 9.5 0 0 1 9.5 -9.5 z`}
+            fill="var(--accent)"
+            stroke="var(--surface)"
+            strokeWidth="2"
+            style={{ filter: 'drop-shadow(0 2px 3px rgba(19,26,41,.3))' }}
+          />
+          <circle cx={pinAt.x} cy={pinAt.y - 20.5} r="3.4" fill="var(--surface)" />
+        </g>
+      )}
 
       <EndpointLabel point={START} label={ROAD_START_LABEL} />
       <EndpointLabel point={END} label={ROAD_END_LABEL} />
