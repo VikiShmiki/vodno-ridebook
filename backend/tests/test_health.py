@@ -20,3 +20,16 @@ def test_root_endpoint_describes_service(client):
 
 def test_openapi_schema_is_served(client):
     assert client.get("/api/openapi.json").status_code == 200
+
+
+def test_seeding_is_idempotent(client):
+    """Seeding twice must not duplicate the demo data."""
+    from app.core.seed import seed_if_empty
+
+    seed_if_empty()
+    first = len(client.get("/api/rides", params={"limit": 200}).json())
+    seed_if_empty()
+    second = len(client.get("/api/rides", params={"limit": 200}).json())
+
+    assert first > 0
+    assert first == second

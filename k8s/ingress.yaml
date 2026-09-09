@@ -1,0 +1,37 @@
+# Single entry point for the whole application.
+#
+#   http://vodno.local/      -> frontend Service (static React bundle)
+#   http://vodno.local/api   -> backend Service  (FastAPI)
+#
+# ingress-nginx evaluates Prefix rules longest-match-first, so /api reaches the
+# backend and everything else falls through to the frontend.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vodno-ingress
+  namespace: vodno-ridebook
+  labels:
+    app.kubernetes.io/part-of: vodno-ridebook
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "2m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: vodno.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

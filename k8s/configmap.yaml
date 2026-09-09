@@ -1,0 +1,26 @@
+# Non-sensitive configuration. Changing a value here and restarting the
+# Deployments reconfigures the application without rebuilding any image.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vodno-config
+  namespace: vodno-ridebook
+  labels:
+    app.kubernetes.io/part-of: vodno-ridebook
+data:
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+
+  # Database coordinates. The hostname is the headless Service in front of the
+  # PostgreSQL StatefulSet.
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "vodno"
+
+  # API configuration.
+  CORS_ORIGINS: "http://vodno.local"
+  SEED_DATA: "true"
+
+  # Consumed by the frontend nginx template. In this cluster the Ingress
+  # already routes /api to the backend, so it is only a fallback path.
+  BACKEND_URL: "http://backend:8000"

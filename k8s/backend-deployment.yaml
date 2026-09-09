@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: vodno-ridebook
+  labels:
+    app: backend
+    app.kubernetes.io/part-of: vodno-ridebook
+spec:
+  # Two replicas: the API stays available while one pod is deleted
+  # (self-healing demo) or replaced by a new image (rolling update demo).
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Never drop below the desired replica count: a new pod must be Ready
+      # before an old one is terminated.
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: backend
+        app.kubernetes.io/part-of: vodno-ridebook
+    spec:
+      # Spread replicas over nodes when the cluster has more than one.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: backend
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          image: ghcr.io/vikishmiki/vodno-backend:latest
+          # IfNotPresent lets a locally built image (kind load docker-image) be
+          # used without a registry; CD deploys immutable SHA tags, which are
+          # always pulled because the tag is new.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          # All plain configuration comes from the ConfigMap and all
+          # credentials from the Secret - nothing is baked into the image.
+          envFrom:
+            - configMapRef:
+                name: vodno-config
+            - secretRef:
+                name: vodno-secret
+          # Gives the pod time to wait for PostgreSQL on a cold start without
+          # the liveness probe killing it.
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 3
+            failureThreshold: 30
+          # Readiness decides Service membership: a pod that loses its database
+          # returns 503 and is removed from the endpoints instead of failing
+          # user requests.
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+          # Endpoint removal and SIGTERM are delivered concurrently. Pausing
+          # before the server starts shutting down lets kube-proxy and the
+          # Ingress controller drop this pod from their backend lists first,
+          # so no in-flight request is lost during a rolling update.
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # The root filesystem is read-only, so scratch space is an emptyDir.
+        - name: tmp
+          emptyDir: {}
+      terminationGracePeriodSeconds: 30
+---
+# Keeps at least one backend pod serving during voluntary disruptions such as
+# a node drain.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend
+  namespace: vodno-ridebook
+  labels:
+    app: backend
+    app.kubernetes.io/part-of: vodno-ridebook
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend

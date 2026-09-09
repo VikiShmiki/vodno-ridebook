@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.api import api_router
 from app.core.config import get_settings
-from app.core.database import init_schema, wait_for_database
+from app.core.database import bootstrap_lock, init_schema, wait_for_database
 
 settings = get_settings()
 logging.basicConfig(
@@ -23,11 +23,14 @@ logger = logging.getLogger("vodno")
 async def lifespan(_: FastAPI):
     """Prepare the database before the process starts serving traffic."""
     wait_for_database()
-    init_schema()
-    if settings.seed_data:
-        from app.core.seed import seed_if_empty
+    # Schema creation and seeding run under a cross-replica lock so that two
+    # backend pods starting simultaneously cannot both seed the database.
+    with bootstrap_lock():
+        init_schema()
+        if settings.seed_data:
+            from app.core.seed import seed_if_empty
 
-        seed_if_empty()
+            seed_if_empty()
     logger.info("Vodno Ridebook API %s started in %s mode", __version__, settings.app_env)
     yield
 

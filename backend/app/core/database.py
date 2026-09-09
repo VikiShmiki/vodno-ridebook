@@ -3,6 +3,7 @@
 import logging
 import time
 from collections.abc import Generator
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
@@ -13,6 +14,9 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
+# Arbitrary but stable identifier for the startup advisory lock.
+BOOTSTRAP_LOCK_ID = 4711
 
 # SQLite (used by the test suite) needs a different connect configuration than
 # Postgres, which is what runs in Docker Compose and Kubernetes.
@@ -55,24 +59,37 @@ def wait_for_database(attempts: int = 30, delay_seconds: float = 2.0) -> None:
             time.sleep(delay_seconds)
 
 
-def init_schema() -> None:
-    """Create missing tables.
+@contextmanager
+def bootstrap_lock() -> Generator[None, None, None]:
+    """Serialise one-time startup work across backend replicas.
 
-    Multiple backend replicas start at the same time in Kubernetes, so the
-    CREATE TABLE pass is wrapped in a Postgres advisory lock to make exactly
-    one replica perform it. SQLite has no advisory locks and only ever runs
-    single-process in the tests, so it skips straight to create_all.
+    Every replica runs the same bootstrap sequence at the same time in
+    Kubernetes. A Postgres session-level advisory lock makes exactly one of
+    them do the work while the others wait and then find it already done.
+    The lock is released automatically if the process dies holding it.
+    SQLite has no advisory locks and only ever runs single-process in the
+    tests, so it is a no-op there.
     """
-    from app import models  # noqa: F401  (import registers the mappers)
-
     if _is_sqlite:
-        Base.metadata.create_all(bind=engine)
+        yield
         return
 
-    lock_id = 4711  # arbitrary but stable identifier for this application
-    with engine.begin() as connection:
-        connection.execute(text("SELECT pg_advisory_lock(:lock_id)"), {"lock_id": lock_id})
+    with engine.connect() as connection:
+        connection.execute(
+            text("SELECT pg_advisory_lock(:lock_id)"), {"lock_id": BOOTSTRAP_LOCK_ID}
+        )
+        connection.commit()
         try:
-            Base.metadata.create_all(bind=connection)
+            yield
         finally:
-            connection.execute(text("SELECT pg_advisory_unlock(:lock_id)"), {"lock_id": lock_id})
+            connection.execute(
+                text("SELECT pg_advisory_unlock(:lock_id)"), {"lock_id": BOOTSTRAP_LOCK_ID}
+            )
+            connection.commit()
+
+
+def init_schema() -> None:
+    """Create any missing tables. Call inside bootstrap_lock()."""
+    from app import models  # noqa: F401  (import registers the mappers)
+
+    Base.metadata.create_all(bind=engine)

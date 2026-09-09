@@ -1,0 +1,8 @@
+# Every object of this project lives in its own namespace, so the whole
+# application can be inspected or removed with a single namespace selector.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vodno-ridebook
+  labels:
+    app.kubernetes.io/part-of: vodno-ridebook

@@ -1,0 +1,19 @@
+# Stable virtual IP in front of the backend pods. Traffic is only sent to
+# pods whose readiness probe passes, which is what makes the rolling update
+# and the self-healing demonstration seamless.
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: vodno-ridebook
+  labels:
+    app: backend
+    app.kubernetes.io/part-of: vodno-ridebook
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
