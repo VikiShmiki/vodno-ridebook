@@ -1,0 +1,35 @@
+# Environment files with real credentials
+.env
+.env.local
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.db
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Kubernetes secrets rendered from templates
+k8s/secret.yaml
+kubeconfig*.yaml
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Logs
+*.log

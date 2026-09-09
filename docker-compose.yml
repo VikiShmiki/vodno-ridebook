@@ -1,0 +1,85 @@
+# Full local stack: React frontend, FastAPI backend and PostgreSQL.
+#
+#   cp .env.example .env
+#   docker compose up --build
+#
+# The application is then served on http://localhost:8080.
+
+name: vodno-ridebook
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vodno-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vodno}
+      POSTGRES_USER: ${POSTGRES_USER:-vodno}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vodno}
+      # Keep the data directory one level below the mount point so the volume
+      # can be mounted cleanly.
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vodno
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vodno} -d ${POSTGRES_DB:-vodno}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: vodno-backend:local
+    container_name: vodno-backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-vodno}
+      POSTGRES_USER: ${POSTGRES_USER:-vodno}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vodno}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      SEED_DATA: ${SEED_DATA:-true}
+    ports:
+      # Exposed so the API and /api/docs can be reached directly during the demo.
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vodno
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: vodno-frontend:local
+    container_name: vodno-frontend
+    restart: unless-stopped
+    environment:
+      # nginx proxies /api to the backend service over the compose network.
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - vodno
+
+volumes:
+  # Named volume: database contents survive `docker compose down` and restarts.
+  postgres_data:
+    name: vodno_postgres_data
+
+networks:
+  vodno:
+    name: vodno-network
+    driver: bridge
