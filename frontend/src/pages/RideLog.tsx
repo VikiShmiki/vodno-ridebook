@@ -3,8 +3,8 @@ import { useState } from 'react'
 import { createRide, deleteRide, listMotorcycles, listRides } from '../api/endpoints'
 import { useAsync } from '../api/useAsync'
 import { Icon } from '../components/Icon'
-import { WEATHER_ICONS, WEATHER_LABELS, formatDate } from '../components/labels'
-import { Card, EmptyState, ErrorNote, Skeleton, SuccessNote } from '../components/ui'
+import { WEATHER_ICONS, WEATHER_LABELS, WEATHER_TONES, formatDate } from '../components/labels'
+import { Card, EmptyState, ErrorNote, Score, Skeleton, SuccessNote } from '../components/ui'
 import { WEATHER_OPTIONS, type Weather } from '../types/api'
 
 const RATINGS = [
@@ -219,16 +219,26 @@ export function RideLog() {
                     <tr key={ride.id}>
                       <td style={{ whiteSpace: 'nowrap' }}>{formatDate(ride.date)}</td>
                       <td>
-                        <span className="row" style={{ gap: '0.4rem', flexWrap: 'nowrap' }}>
-                          <Icon name={WEATHER_ICONS[ride.weather]} size={14} className="faint" />
+                        <span className="row" style={{ gap: '0.45rem', flexWrap: 'nowrap' }}>
+                          <span className={`icon-chip sm ${WEATHER_TONES[ride.weather]}`}>
+                            <Icon name={WEATHER_ICONS[ride.weather]} size={13} />
+                          </span>
                           {WEATHER_LABELS[ride.weather]}
                         </span>
                       </td>
                       <td className="num">{ride.distance_km ?? '–'}</td>
-                      <td className="num">{ride.road_quality_rating}</td>
-                      <td className="num">{ride.traffic_rating}</td>
-                      <td className="num">{ride.road_cleanliness_rating}</td>
-                      <td className="num">{ride.enjoyment_rating}</td>
+                      <td className="num">
+                        <Score value={ride.road_quality_rating} />
+                      </td>
+                      <td className="num">
+                        <Score value={ride.traffic_rating} />
+                      </td>
+                      <td className="num">
+                        <Score value={ride.road_cleanliness_rating} />
+                      </td>
+                      <td className="num">
+                        <Score value={ride.enjoyment_rating} />
+                      </td>
                       <td className="notes">{ride.notes ?? '–'}</td>
                       <td className="actions">
                         <button

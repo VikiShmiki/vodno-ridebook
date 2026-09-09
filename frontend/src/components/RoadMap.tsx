@@ -111,6 +111,19 @@ function snapToRoad(latitude: number, longitude: number): Point {
   return best
 }
 
+/**
+ * Decorative contour lines. They are not survey data - they only give the
+ * frame a sense of a hillside rising towards the summit, which is south of
+ * the city and therefore towards the bottom of the drawing.
+ */
+const CONTOURS = Array.from({ length: 6 }, (_, index) => {
+  const y = HEIGHT * (0.16 + index * 0.145)
+  const sag = 26 + index * 5
+  return `M -20 ${y.toFixed(0)} C ${WIDTH * 0.28} ${(y - sag).toFixed(0)}, ${(
+    WIDTH * 0.62
+  ).toFixed(0)} ${(y + sag * 0.7).toFixed(0)}, ${WIDTH + 20} ${(y - sag * 0.4).toFixed(0)}`
+})
+
 function markerColor(report: RoadReport): string {
   if (report.resolved) return 'var(--text-3)'
   if (report.severity === 'high') return 'var(--danger)'
@@ -164,12 +177,26 @@ export function RoadMap({
       aria-label="Map of the road from Skopje up to Sredno Vodno with reported conditions"
     >
       <defs>
-        <linearGradient id="hillside" x1="0" y1="1" x2="0.2" y2="0">
-          <stop offset="0%" stopColor="var(--surface-2)" />
-          <stop offset="100%" stopColor="var(--bg-tint)" />
+        {/* North (Skopje) is at the top of the frame and the mountain rises
+            southwards, so the green deepens towards the bottom. */}
+        <linearGradient id="hillside" x1="0.15" y1="1" x2="0" y2="0">
+          <stop offset="0%" stopColor="var(--terrain-high)" />
+          <stop offset="100%" stopColor="var(--terrain-low)" />
         </linearGradient>
+        <clipPath id="frame">
+          <rect x="0" y="0" width={WIDTH} height={HEIGHT} rx="9" />
+        </clipPath>
       </defs>
-      <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="url(#hillside)" />
+
+      <g clipPath="url(#frame)">
+        <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="url(#hillside)" />
+        {/* Contour lines, evenly spaced up the slope. */}
+        <g stroke="var(--terrain-line)" strokeWidth="1" fill="none" opacity="0.7">
+          {CONTOURS.map((d) => (
+            <path key={d} d={d} />
+          ))}
+        </g>
+      </g>
 
       {/* Road: dark casing, tarmac, centre line. */}
       <path d={ROAD_PATH} stroke="var(--road-edge)" strokeWidth="11" fill="none" strokeLinecap="round" strokeLinejoin="round" />

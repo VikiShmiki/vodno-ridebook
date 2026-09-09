@@ -10,6 +10,7 @@ import {
   SEVERITY_LABELS,
   WEATHER_ICONS,
   WEATHER_LABELS,
+  WEATHER_TONES,
   formatDate,
   timeAgo,
 } from '../components/labels'
@@ -73,12 +74,14 @@ export function Dashboard() {
             />
             <Stat
               icon="stats"
+              tone="sky"
               label="Avg road quality"
               value={stats.data.avg_road_quality?.toFixed(1) ?? '–'}
               sub="out of 5"
             />
             <Stat
               icon="star"
+              tone="violet"
               label="Avg enjoyment"
               value={stats.data.avg_enjoyment?.toFixed(1) ?? '–'}
               sub="out of 5"
@@ -181,7 +184,7 @@ export function Dashboard() {
               {(rides.data ?? []).map((ride) => (
                 <li key={ride.id}>
                   <div className="row" style={{ flexWrap: 'nowrap' }}>
-                    <span className="icon-chip">
+                    <span className={`icon-chip ${WEATHER_TONES[ride.weather]}`}>
                       <Icon name={WEATHER_ICONS[ride.weather]} size={15} />
                     </span>
                     <div>

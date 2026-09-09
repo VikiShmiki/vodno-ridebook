@@ -2,6 +2,20 @@ import type { ReactNode } from 'react'
 
 import { Icon, type IconName } from './Icon'
 
+export type StatTone =
+  | 'accent'
+  | 'ok'
+  | 'warn'
+  | 'danger'
+  | 'neutral'
+  | 'sky'
+  | 'indigo'
+  | 'violet'
+  | 'teal'
+  | 'amber'
+  | 'rose'
+  | 'lime'
+
 export function Card({
   title,
   icon,
@@ -45,7 +59,7 @@ export function Stat({
   value: ReactNode
   sub?: string
   icon: IconName
-  tone?: 'accent' | 'ok' | 'warn' | 'danger' | 'neutral'
+  tone?: StatTone
 }) {
   return (
     <div className={`stat ${tone}`}>
@@ -61,14 +75,23 @@ export function Stat({
   )
 }
 
+/** Green at 4 and above, amber from 3, red below: a score states its own verdict. */
+export function verdict(value: number | null): '' | 'good' | 'fair' | 'poor' {
+  if (value === null) return ''
+  if (value >= 4) return 'good'
+  if (value >= 3) return 'fair'
+  return 'poor'
+}
+
 export function RatingBar({ label, value }: { label: string; value: number | null }) {
+  const tone = verdict(value)
   return (
     <div className="rating-row">
       <span className="name">{label}</span>
-      <span className="bar">
+      <span className={`bar ${tone}`}>
         <span style={{ width: `${value === null ? 0 : (value / 5) * 100}%` }} />
       </span>
-      <span className="num">{value === null ? '–' : value.toFixed(1)}</span>
+      <span className={`num ${tone}`}>{value === null ? '–' : value.toFixed(1)}</span>
     </div>
   )
 }
@@ -137,4 +160,10 @@ export function SuccessNote({ message }: { message: string }) {
       <span>{message}</span>
     </p>
   )
+}
+
+
+/** A 1-5 rating rendered in the colour of its verdict. */
+export function Score({ value }: { value: number }) {
+  return <span className={`score ${verdict(value)}`}>{value}</span>
 }

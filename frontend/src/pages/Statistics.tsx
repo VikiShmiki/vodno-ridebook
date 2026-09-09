@@ -1,7 +1,15 @@
 import { getStats } from '../api/endpoints'
 import { useAsync } from '../api/useAsync'
 import { Icon } from '../components/Icon'
-import { CATEGORY_ICONS, CATEGORY_LABELS, WEATHER_ICONS, WEATHER_LABELS, formatDate } from '../components/labels'
+import {
+  CATEGORY_ICONS,
+  CATEGORY_LABELS,
+  CATEGORY_TONES,
+  WEATHER_ICONS,
+  WEATHER_LABELS,
+  WEATHER_TONES,
+  formatDate,
+} from '../components/labels'
 import { Badge, Card, EmptyState, ErrorNote, RatingBar, SkeletonBlock, Stat } from '../components/ui'
 import type { ReportCategory } from '../types/api'
 
@@ -42,8 +50,14 @@ export function Statistics() {
 
       <div className="grid cols-4" style={{ marginBottom: 'var(--sp-4)' }}>
         <Stat icon="route" label="Rides" value={stats.data.total_rides} sub="logged runs" />
-        <Stat icon="map" label="Distance" value={`${stats.data.total_distance_km} km`} sub="total" />
-        <Stat icon="motorcycle" label="Motorcycles" value={stats.data.total_motorcycles} sub="in the garage" />
+        <Stat icon="map" tone="sky" label="Distance" value={`${stats.data.total_distance_km} km`} sub="total" />
+        <Stat
+          icon="motorcycle"
+          tone="violet"
+          label="Motorcycles"
+          value={stats.data.total_motorcycles}
+          sub="in the garage"
+        />
         <Stat
           icon="reports"
           tone={stats.data.open_reports === 0 ? 'ok' : 'warn'}
@@ -93,7 +107,7 @@ export function Statistics() {
               {stats.data.best_rides.map((ride) => (
                 <li key={ride.id}>
                   <div className="row" style={{ flexWrap: 'nowrap' }}>
-                    <span className="icon-chip">
+                    <span className={`icon-chip ${WEATHER_TONES[ride.weather]}`}>
                       <Icon name={WEATHER_ICONS[ride.weather]} size={15} />
                     </span>
                     <div>
@@ -119,7 +133,7 @@ export function Statistics() {
               {categories.map(([category, count]) => (
                 <li key={category}>
                   <div className="row" style={{ flexWrap: 'nowrap' }}>
-                    <span className="icon-chip">
+                    <span className={`icon-chip ${CATEGORY_TONES[category as ReportCategory] ?? 'slate'}`}>
                       <Icon name={CATEGORY_ICONS[category as ReportCategory] ?? 'other'} size={15} />
                     </span>
                     <span className="item-title">

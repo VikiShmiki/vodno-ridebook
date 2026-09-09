@@ -244,6 +244,52 @@ main {
   box-shadow: var(--shadow-md);
 }
 
+.stat::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--tile-hue, var(--accent));
+}
+
+.stat.accent {
+  --tile-hue: linear-gradient(90deg, #fb923c, var(--accent));
+}
+.stat.ok {
+  --tile-hue: var(--ok);
+}
+.stat.warn {
+  --tile-hue: var(--warn);
+}
+.stat.danger {
+  --tile-hue: var(--danger);
+}
+.stat.sky {
+  --tile-hue: var(--sky-ink);
+}
+.stat.indigo {
+  --tile-hue: var(--indigo-ink);
+}
+.stat.violet {
+  --tile-hue: var(--violet-ink);
+}
+.stat.teal {
+  --tile-hue: var(--teal-ink);
+}
+.stat.amber {
+  --tile-hue: var(--amber-ink);
+}
+.stat.rose {
+  --tile-hue: var(--rose-ink);
+}
+.stat.lime {
+  --tile-hue: var(--lime-ink);
+}
+.stat.neutral {
+  --tile-hue: var(--border-strong);
+}
+
 .stat .stat-top {
   display: flex;
   align-items: center;
@@ -521,6 +567,12 @@ button.icon {
   color: var(--text-2);
 }
 
+.icon-chip.sm {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+}
+
 .icon-chip.low {
   background: var(--ok-soft);
   color: var(--ok);
@@ -536,6 +588,48 @@ button.icon {
 .icon-chip.resolved {
   background: var(--surface-3);
   color: var(--text-3);
+}
+
+/* Hue tones, shared by icon chips and stat tiles. */
+.icon-chip.sky,
+.stat.sky .glyph {
+  background: var(--sky-soft);
+  color: var(--sky-ink);
+}
+.icon-chip.indigo,
+.stat.indigo .glyph {
+  background: var(--indigo-soft);
+  color: var(--indigo-ink);
+}
+.icon-chip.violet,
+.stat.violet .glyph {
+  background: var(--violet-soft);
+  color: var(--violet-ink);
+}
+.icon-chip.teal,
+.stat.teal .glyph {
+  background: var(--teal-soft);
+  color: var(--teal-ink);
+}
+.icon-chip.amber,
+.stat.amber .glyph {
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+}
+.icon-chip.rose,
+.stat.rose .glyph {
+  background: var(--rose-soft);
+  color: var(--rose-ink);
+}
+.icon-chip.lime,
+.stat.lime .glyph {
+  background: var(--lime-soft);
+  color: var(--lime-ink);
+}
+.icon-chip.slate,
+.stat.slate .glyph {
+  background: var(--slate-soft);
+  color: var(--slate-ink);
 }
 
 /* --- table -------------------------------------------------------------- */
@@ -587,6 +681,20 @@ td.num {
   font-variant-numeric: tabular-nums;
 }
 
+.score {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.score.good {
+  color: var(--ok);
+}
+.score.fair {
+  color: var(--warn);
+}
+.score.poor {
+  color: var(--danger);
+}
+
 td.notes {
   color: var(--text-2);
   min-width: 200px;
@@ -631,6 +739,26 @@ td.actions {
   border-radius: var(--r-full);
   background: linear-gradient(90deg, #fb923c, var(--accent));
   transition: width var(--dur-slow) var(--ease);
+}
+
+.bar.good > span {
+  background: linear-gradient(90deg, #34d399, var(--ok));
+}
+.bar.fair > span {
+  background: linear-gradient(90deg, #fbbf24, var(--warn));
+}
+.bar.poor > span {
+  background: linear-gradient(90deg, #fb7185, var(--danger));
+}
+
+.rating-row .num.good {
+  color: var(--ok);
+}
+.rating-row .num.fair {
+  color: var(--warn);
+}
+.rating-row .num.poor {
+  color: var(--danger);
 }
 
 /* --- month chart -------------------------------------------------------- */

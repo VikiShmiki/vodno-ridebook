@@ -20,9 +20,9 @@
   --border: #e2e6ed;
   --border-strong: #ccd3de;
 
-  /* --- schematic map -------------------------------------------------- */
-  --road: #cdd4de;
-  --road-edge: #aab4c2;
+  /* --- road, drawn over the terrain ------------------------------------ */
+  --road: #d3d9e2;
+  --road-edge: #9aa5b5;
   --road-line: #ffffff;
 
   /* --- text ----------------------------------------------------------- */
@@ -53,8 +53,45 @@
   --danger-soft: #fdeeee;
   --danger-line: #f4b8b8;
 
-  --info: #1d4ed8;
-  --info-soft: #eef2ff;
+  /* --- accent hues ----------------------------------------------------
+     Used for icon chips, stat tiles and chart fills. Each `-ink` value clears
+     4.5:1 on white and on its own `-soft` tint, so labels stay readable. */
+  --sky-ink: #0369a1;
+  --sky-soft: #e0f2fe;
+  --sky-line: #a8dcf7;
+
+  --indigo-ink: #4338ca;
+  --indigo-soft: #e6e8fd;
+  --indigo-line: #bdc2f6;
+
+  --violet-ink: #6d28d9;
+  --violet-soft: #f3e8ff;
+  --violet-line: #ddc7f7;
+
+  --teal-ink: #0f766e;
+  --teal-soft: #d5f5f0;
+  --teal-line: #9de0d6;
+
+  --amber-ink: #8a5406;
+  --amber-soft: #fdf3d7;
+  --amber-line: #f0d79b;
+
+  --rose-ink: #be123c;
+  --rose-soft: #ffe4e9;
+  --rose-line: #fbbecb;
+
+  --lime-ink: #446e0d;
+  --lime-soft: #eaf7d4;
+  --lime-line: #c7e79a;
+
+  --slate-ink: #475569;
+  --slate-soft: #eef1f6;
+  --slate-line: #ccd4e0;
+
+  /* --- terrain, for the map -------------------------------------------- */
+  --terrain-low: #f1f7e8;
+  --terrain-high: #d3e5c1;
+  --terrain-line: #bcd4a5;
 
   /* --- radii ---------------------------------------------------------- */
   --r-sm: 6px;

@@ -32,6 +32,38 @@ export const WEATHER_LABELS: Record<Weather, string> = {
   cold: 'Cold',
 }
 
+/** Hue used for icon chips. Kept distinct so a list scans at a glance. */
+export type Tone =
+  | 'neutral'
+  | 'sky'
+  | 'indigo'
+  | 'violet'
+  | 'teal'
+  | 'amber'
+  | 'rose'
+  | 'lime'
+  | 'slate'
+
+export const CATEGORY_TONES: Record<ReportCategory, Tone> = {
+  gravel: 'amber',
+  wet_road: 'sky',
+  damaged_asphalt: 'rose',
+  roadworks: 'violet',
+  traffic: 'indigo',
+  animals: 'lime',
+  poor_visibility: 'slate',
+  other: 'slate',
+}
+
+export const WEATHER_TONES: Record<Weather, Tone> = {
+  sunny: 'amber',
+  cloudy: 'slate',
+  rain: 'indigo',
+  fog: 'violet',
+  wind: 'teal',
+  cold: 'sky',
+}
+
 export const WEATHER_ICONS: Record<Weather, IconName> = {
   sunny: 'sunny',
   cloudy: 'cloudy',
