@@ -40,7 +40,7 @@ jobs:
         service: [backend, frontend]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Derive image coordinates
         id: meta
@@ -105,7 +105,7 @@ jobs:
       NAMESPACE: vodno-ridebook
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Show cluster
         run: |
