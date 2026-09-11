@@ -22,7 +22,7 @@ RUN npm run build
 # Stage 2 - serve the static bundle.
 # nginx-unprivileged listens on 8080 and runs as UID 101 without root.
 # ---------------------------------------------------------------------------
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 
 # Apply outstanding Alpine security patches. The base image has already
 # dropped to uid 101, so this needs root and must drop back afterwards.
