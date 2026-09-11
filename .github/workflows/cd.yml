@@ -64,7 +64,7 @@ jobs:
       # Readable tags plus the immutable commit SHA, so any running pod can be
       # traced back to the exact commit it was built from.
       - name: Build and push ${{ matrix.service }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./${{ matrix.service }}
           push: true
