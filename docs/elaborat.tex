@@ -230,21 +230,20 @@ Both services are containerised separately with multi-stage builds.
 \subsection{Backend Dockerfile}
 
 Stage one, on \cd{python:3.12-slim}, creates a virtualenv at \cd{/opt/venv}
-and installs the pinned requirements. Stage two starts from the same slim
-base, copies only the finished virtualenv and the \cd{app} package, and never
-sees pip's caches or build tooling. A dedicated user is created and the image
-ends with \cd{USER vodno} (uid 1001), so no application code runs as root. A
-\cd{HEALTHCHECK} calls \cd{/api/health} using the standard library, avoiding an
-extra \cd{curl} dependency.
+and installs the pinned requirements. Stage two starts from the same slim base,
+copies only the finished virtualenv and the \cd{app} package, and never sees
+pip's caches or build tooling. It applies outstanding OS security patches,
+creates a dedicated user and ends with \cd{USER vodno} (uid 1001), so no
+application code runs as root. A \cd{HEALTHCHECK} calls \cd{/api/health} using
+the standard library, avoiding an extra \cd{curl} dependency.
 
 \subsection{Frontend Dockerfile}
 
-Stage one, on \cd{node:24-alpine}, copies \cd{package.json} and
-\cd{package-lock.json} first and runs \cd{npm ci} before the source is copied,
-so the dependency layer is reused whenever only application code changes. It
-then runs \cd{npm run build}. Stage two is
+Stage one, on \cd{node:24-alpine}, copies the lockfile and runs \cd{npm ci}
+before the source, so the dependency layer is reused whenever only application
+code changes, then runs \cd{npm run build}. Stage two is
 \cd{nginxinc/nginx-unprivileged:1.27-alpine}, which listens on 8080 as uid 101
-without root, and receives only the compiled \cd{dist} directory plus an nginx
+without root and receives only the compiled \cd{dist} directory plus an nginx
 configuration template.
 
 \subsection{Resulting images}
@@ -362,7 +361,7 @@ checkout
   ├─ backend   → pip install → ruff check → ruff format --check
   │               → pytest against a PostgreSQL 16 service container
   │               → assert the OpenAPI schema exposes the required routes
-  ├─ docker-build       → Buildx builds both images (matrix), no push
+  ├─ docker-build       → Buildx builds both images, then Trivy scans them
   ├─ elaborat           → compile this report with XeLaTeX, strictly
   └─ compose-smoke-test → docker compose up --build -d, then curl
                           /healthz, /api/health, /api/stats, /api/reports
@@ -390,8 +389,9 @@ build both images with Buildx (GitHub Actions layer cache)
       ↓
 push to ghcr.io, tagged:  latest · <short-sha> · <full-sha>
       ↓
-[only when a KUBE_CONFIG secret exists]
-kubectl apply -f k8s/  →  kubectl set image  →  kubectl rollout status
+deploy on a self-hosted runner sitting next to the cluster
+  kubectl apply → kubectl set image → rollout status → Ingress smoke test
+  └─ on failure: roll back to the previously running images
 \end{code}
 
 Re-using \cd{ci.yml} through \cd{workflow\_call} rather than copying the steps
@@ -410,17 +410,47 @@ immutable one used by the deployment step, so any running pod can be traced
 back to the exact commit it was built from. OCI labels record the source
 repository and revision inside the image itself.
 
+\subsection{Supply chain security}
+
+Every image is scanned with Trivy before it can be published. The build
+\textbf{fails} on a HIGH or CRITICAL vulnerability that has a fix available;
+unfixed CVEs are reported to the repository's Security tab as SARIF rather
+than blocking, because the project cannot act on them until upstream patches.
+A CycloneDX SBOM is published alongside each image, which answers ``what is
+actually in this container'' in a way a CVE list alone does not.
+
+Introducing the scan was not a formality. It found \cd{starlette 0.41.3}
+carrying three HIGH CVEs, pinned transitively by the FastAPI version in use,
+and both base images shipping unpatched OS packages. Upgrading FastAPI and
+adding a security-update layer to each runtime stage took the count of
+fixable HIGH/CRITICAL findings from 87 in the backend image and 35 in the
+frontend to \textbf{zero in both}, so the gate starts from a clean state.
+
 \subsection{Secrets}
 
-No credential appears in any file in the repository. Two are used:
-\cd{GITHUB\_TOKEN}, which GitHub Actions provides automatically and which
-authenticates the push to GHCR, and the optional \cd{KUBE\_CONFIG} repository
-secret holding a base64-encoded kubeconfig for the deploy job.
+No credential appears in any file in the repository. \cd{GITHUB\_TOKEN},
+provided automatically by GitHub Actions, is the only one needed: it
+authenticates the push to GHCR. The deployment step needs no secret at all,
+because it runs on a machine that already has cluster access.
 
-Because the \cd{secrets} context is not available in a job-level \cd{if}, the
-\cd{publish} job turns the presence of \cd{KUBE\_CONFIG} into a job output,
-and the \cd{deploy} job keys off that. When no cluster is configured the
-deploy job is skipped and the pipeline still succeeds.
+\subsection{Deployment and branch protection}
+
+A GitHub-hosted runner cannot reach a kind cluster running on a laptop, so
+the \cd{deploy} job runs on a \textbf{self-hosted runner} installed next to
+the cluster. It applies the manifests, rolls both Deployments to the
+commit-SHA tag, waits for the rollouts, and then smoke-tests the application
+through the Ingress --- a green rollout only proves the pods started, not
+that they serve. If any step fails, the previously running images are
+restored automatically.
+
+Only this job is self-hosted, and it triggers solely on a push to \cd{main},
+never on a pull request, so code from a fork cannot execute on the machine.
+Every CI job stays on a GitHub-hosted runner.
+
+\cd{main} is a protected branch: no direct pushes, no force pushes, no
+deletion, and all six CI checks must pass before a pull request can merge.
+The rules are enforced for administrators too, which is what makes the
+pipeline a gate rather than a suggestion.
 
 \subsection{CD mechanism}
 
@@ -542,8 +572,8 @@ restart the web tier.
 
 Both application pods run with \cd{runAsNonRoot},
 \cd{readOnlyRootFilesystem: true}, \cd{allowPrivilegeEscalation: false}, all
-capabilities dropped and the \cd{RuntimeDefault} seccomp profile; the writable
-paths each service genuinely needs are \cd{emptyDir} volumes.
+capabilities dropped and the \cd{RuntimeDefault} seccomp profile; the few
+writable paths each service needs are \cd{emptyDir} volumes.
 
 % =========================================================================
 \section{Kubernetes demonstrations}
@@ -710,9 +740,13 @@ A complete, working path from source code to a running Kubernetes deployment:
         network and a persistent named volume.
   \item A CI pipeline: linting, type checking, tests against a real
         PostgreSQL service container, an OpenAPI contract assertion, image
-        builds and a full Compose smoke test --- and a CD pipeline re-using
-        that gate, publishing to GHCR under \cd{latest} and commit-SHA tags
-        and rolling the Deployments.
+        builds, Trivy vulnerability scanning with SBOM publication, a full
+        Compose smoke test and a strict build of this report --- all six
+        enforced as required checks on a protected \cd{main}.
+  \item A CD pipeline re-using that gate, publishing to GHCR under
+        \cd{latest} and commit-SHA tags, then deploying to the cluster from a
+        self-hosted runner with a post-deploy smoke test and automatic
+        rollback.
   \item Kubernetes manifests: dedicated namespace, ConfigMap, Secret (safe
         committed template), PostgreSQL StatefulSet with a
         PersistentVolumeClaim, two-replica Deployments with probes, limits,
@@ -759,6 +793,14 @@ rollout still dropped a request. Only polling the API through the rollout
 revealed it, and only then did the missing piece --- a \cd{preStop} drain hook
 --- become obvious.
 
+\textbf{A pipeline that cannot deploy is only half a pipeline.} For most of
+this project the \cd{deploy} job was skipped on every single run, because no
+cluster was reachable from a hosted runner. The workflow looked complete and
+proved nothing. Installing a self-hosted runner beside the cluster was what
+turned continuous integration into continuous delivery, and adding a
+post-deploy smoke test with automatic rollback is what made that delivery
+trustworthy rather than merely automatic.
+
 \textbf{Small architectural decisions pay off across the pipeline.} Choosing
 relative \cd{/api} paths instead of a build-time API URL meant one frontend
 image for every environment. That one decision is what makes the CI smoke test
@@ -787,9 +829,10 @@ that runs in Kubernetes.
 The project set out to demonstrate a complete continuous integration and
 delivery workflow rather than a large application, and the small size of Vodno
 Ridebook turned out to be the right choice: it left room to get the pipeline
-right, to measure what it claimed, and to fix the two real defects that
-measurement uncovered. The result is a system that can be built, tested,
-published, deployed, updated and recovered without a manual step outside
-\cd{git push}.
+right, to measure what it claimed, and to fix every defect that measurement
+uncovered --- a seeding race, a dropped request during rollout, and a set of
+vulnerable dependencies. The result is a system that can be built, tested,
+scanned, published, deployed, verified and rolled back without a manual step
+outside \cd{git push}.
 
 \end{document}
