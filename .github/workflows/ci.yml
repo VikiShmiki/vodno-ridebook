@@ -19,6 +19,8 @@ concurrency:
 
 permissions:
   contents: read
+  # Required so Trivy results can be published to the Security tab.
+  security-events: write
 
 jobs:
   frontend:
@@ -159,6 +161,54 @@ jobs:
 
       - name: Show image size
         run: docker image ls vodno-${{ matrix.service }}:ci
+
+      # Gate: fail the build on a HIGH or CRITICAL vulnerability that has a
+      # fix available. Unfixed CVEs are reported below but do not block, since
+      # there is nothing the project can do about them until upstream patches.
+      - name: Scan ${{ matrix.service }} image for fixable vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: vodno-${{ matrix.service }}:ci
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+      # Informational: the full picture, including unfixed CVEs, published to
+      # the repository's Security tab rather than gating the build.
+      - name: Report all vulnerabilities to code scanning
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: vodno-${{ matrix.service }}:ci
+          scanners: vuln
+          format: sarif
+          output: trivy-${{ matrix.service }}.sarif
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.service }}.sarif
+          category: trivy-${{ matrix.service }}
+
+      # An SBOM answers "what is actually in this image", which a CVE list
+      # alone does not.
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: vodno-${{ matrix.service }}:ci
+          scan-type: image
+          format: cyclonedx
+          output: sbom-${{ matrix.service }}.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.json
+          retention-days: 30
 
   elaborat:
     name: Build the report

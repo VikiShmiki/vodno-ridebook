@@ -27,8 +27,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH"
 
-# Unprivileged account; the image never runs application code as root.
-RUN groupadd --gid 1001 vodno \
+# Apply outstanding OS security patches, then create the unprivileged account
+# the image runs as. Both happen in one layer so the apt lists never persist.
+# Without this the image inherits whatever CVEs the base tag was built with,
+# which the Trivy scan in CI would reject.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1001 vodno \
     && useradd --uid 1001 --gid vodno --create-home --shell /usr/sbin/nologin vodno
 
 WORKDIR /app

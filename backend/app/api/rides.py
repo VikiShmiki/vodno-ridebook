@@ -30,7 +30,7 @@ def list_rides(
 @router.post("", response_model=RideRead, status_code=status.HTTP_201_CREATED)
 def create_ride(payload: RideCreate, db: Session = Depends(get_db)) -> Ride:
     if payload.motorcycle_id is not None and db.get(Motorcycle, payload.motorcycle_id) is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown motorcycle_id")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown motorcycle_id")
 
     ride = Ride(**payload.model_dump())
     db.add(ride)

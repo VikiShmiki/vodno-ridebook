@@ -24,6 +24,12 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 
+# Apply outstanding Alpine security patches. The base image has already
+# dropped to uid 101, so this needs root and must drop back afterwards.
+USER root
+RUN apk upgrade --no-cache
+USER 101
+
 # Default target for the /api proxy; overridden per environment.
 ENV BACKEND_URL=http://backend:8000
 

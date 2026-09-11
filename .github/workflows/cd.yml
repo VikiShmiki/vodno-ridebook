@@ -18,6 +18,9 @@ concurrency:
 permissions:
   contents: read
   packages: write
+  # ci.yml is re-used via workflow_call and inherits these permissions, so the
+  # Trivy SARIF upload in the CI gate needs the grant here too.
+  security-events: write
 
 jobs:
   # Exactly the same lint/test/build gate that pull requests go through.
