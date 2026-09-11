@@ -1,0 +1,6 @@
+# Declares the labels of self-hosted runners so actionlint does not flag them
+# as unknown. `vodno-kind` is the runner that sits next to the kind cluster and
+# runs the deploy job.
+self-hosted-runner:
+  labels:
+    - vodno-kind
