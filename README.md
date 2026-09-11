@@ -226,6 +226,8 @@ checkout
   │              → pytest against a PostgreSQL 16 service container
   │              → OpenAPI schema validation
   ├─ docker    → build the backend and frontend images (matrix, no push)
+  ├─ docker    → Trivy scan; fails on a fixable HIGH/CRITICAL CVE,
+  │              publishes SARIF to the Security tab and a CycloneDX SBOM
   ├─ elaborat  → compile docs/elaborat.tex with XeLaTeX, fail on an overfull
   │              box, an unrenderable glyph or a page count outside 3–10
   └─ compose   → docker compose up --build, curl /healthz and /api/health
@@ -244,8 +246,12 @@ build both images with Buildx
     ↓
 push to ghcr.io tagged:  latest · <short-sha> · <full-sha>
     ↓
-[only if the KUBE_CONFIG secret exists]
-kubectl apply -f k8s/  →  kubectl set image  →  kubectl rollout status
+deploy on a self-hosted runner next to the cluster
+    kubectl apply -f k8s/
+    kubectl set image … :<short-sha>
+    kubectl rollout status
+    smoke test through the Ingress
+    └─ on failure: roll back to the previous images
 ```
 
 Published images:
@@ -257,17 +263,59 @@ ghcr.io/vikishmiki/vodno-frontend:latest
 ghcr.io/vikishmiki/vodno-frontend:<commit-sha>
 ```
 
-**Secrets.** No credential is hardcoded anywhere.
+**Secrets.** No credential is hardcoded anywhere. `GITHUB_TOKEN` is provided
+automatically by Actions and is all that is needed to push to GHCR.
 
-| Secret          | Required | Purpose                                                     |
-| --------------- | -------- | ----------------------------------------------------------- |
-| `GITHUB_TOKEN`  | built in | Pushes images to GHCR. Provided automatically by Actions.    |
-| `KUBE_CONFIG`   | optional | Base64-encoded kubeconfig. When absent, the deploy job is skipped. |
+**Supply chain.** Every image is scanned with Trivy before it can be
+published. The build **fails** on a HIGH or CRITICAL vulnerability that has a
+fix available; unfixed CVEs are reported to the repository's Security tab as
+SARIF instead of blocking, and a CycloneDX SBOM is attached to each run.
 
-To enable the deployment job:
+### The self-hosted runner
+
+A GitHub-hosted runner cannot reach a kind cluster running on your laptop, so
+the `deploy` job runs on a self-hosted runner installed next to the cluster:
 
 ```bash
-base64 -w0 ~/.kube/config | gh secret set KUBE_CONFIG
+mkdir -p ~/actions-runner-vodno && cd ~/actions-runner-vodno
+curl -LO https://github.com/actions/runner/releases/download/v2.336.0/actions-runner-linux-x64-2.336.0.tar.gz
+tar xzf actions-runner-linux-x64-2.336.0.tar.gz
+./config.sh --url https://github.com/<you>/vodno-ridebook \
+            --token "$(gh api -X POST repos/<you>/vodno-ridebook/actions/runners/registration-token --jq .token)" \
+            --labels vodno-kind
+export PATH="$HOME/.local/bin:$PATH"   # so the job can find kubectl and kind
+./run.sh
+```
+
+Then switch deployment on with a repository variable:
+
+```bash
+gh variable set SELF_HOSTED_DEPLOY --body true
+```
+
+When the runner is offline, unset the variable and the job is skipped rather
+than queueing forever.
+
+> **Security note.** This repository is public, and a self-hosted runner
+> executes workflow code on your own machine. Only the `deploy` job is
+> self-hosted, and it triggers solely on a push to `main` — never on a pull
+> request, so a fork cannot run code on the runner. Every CI job stays on
+> GitHub-hosted runners. Fork PRs from outside contributors additionally
+> require manual approval before any workflow runs.
+
+### Branch protection
+
+`main` is protected: it cannot be pushed to directly, force-pushed or deleted.
+Changes go through a pull request, and all six CI checks must pass before it
+can merge. The rules are enforced for administrators too, so the pipeline is a
+real gate rather than a suggestion.
+
+If a broken check ever blocks an urgent fix, lift enforcement for a moment:
+
+```bash
+gh api -X DELETE repos/<you>/vodno-ridebook/branches/main/protection/enforce_admins
+# ...and turn it straight back on
+gh api -X POST   repos/<you>/vodno-ridebook/branches/main/protection/enforce_admins
 ```
 
 ---

@@ -34,7 +34,6 @@ jobs:
     needs: tests
     outputs:
       image_tag: ${{ steps.meta.outputs.short_sha }}
-      has_kubeconfig: ${{ steps.kube.outputs.configured }}
     strategy:
       fail-fast: false
       matrix:
@@ -90,52 +89,81 @@ jobs:
             echo '- `${{ steps.meta.outputs.image }}:${{ github.sha }}`'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # The secrets context is not available in a job-level `if`, so the
-      # presence of a kubeconfig is turned into a job output here instead.
-      - name: Detect whether a cluster is configured
-        id: kube
-        run: echo "configured=${{ secrets.KUBE_CONFIG != '' }}" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Roll out to Kubernetes
-    runs-on: ubuntu-latest
+    # Runs on a self-hosted runner that sits next to the cluster, because a
+    # GitHub-hosted runner cannot reach a local kind cluster. Only this job is
+    # self-hosted, and it only triggers on a push to main - never on a pull
+    # request, which is what keeps untrusted fork code off the machine.
+    runs-on: [self-hosted, vodno-kind]
     needs: publish
-    if: needs.publish.outputs.has_kubeconfig == 'true'
+    # A repository variable rather than a secret: when the runner is offline,
+    # unset it and the job is skipped instead of queueing forever.
+    if: vars.SELF_HOSTED_DEPLOY == 'true'
     env:
       NAMESPACE: vodno-ridebook
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure kubectl
+      - name: Show cluster
         run: |
-          mkdir -p "$HOME/.kube"
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
           kubectl version --client
           kubectl cluster-info
+          kubectl get nodes
 
+      # Manifests are applied before the image is set, because `apply` would
+      # otherwise reset the image back to the tag written in the YAML.
       - name: Apply manifests
         run: |
           kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/ -n "$NAMESPACE"
+          kubectl apply -f k8s/
 
-      # `kubectl set image` triggers the rolling update; the Deployment's
-      # RollingUpdate strategy keeps the service available throughout.
+      - name: Record the currently running images for rollback
+        id: current
+        run: |
+          echo "backend=$(kubectl -n "$NAMESPACE" get deploy backend -o jsonpath='{.spec.template.spec.containers[0].image}')" >> "$GITHUB_OUTPUT"
+          echo "frontend=$(kubectl -n "$NAMESPACE" get deploy frontend -o jsonpath='{.spec.template.spec.containers[0].image}')" >> "$GITHUB_OUTPUT"
+
       - name: Roll out the new image tag
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           tag="${{ needs.publish.outputs.image_tag }}"
+          kubectl -n "$NAMESPACE" set image deployment/backend  "backend=ghcr.io/${owner}/vodno-backend:${tag}"
+          kubectl -n "$NAMESPACE" set image deployment/frontend "frontend=ghcr.io/${owner}/vodno-frontend:${tag}"
 
-          kubectl -n "$NAMESPACE" set image deployment/backend \
-            backend="ghcr.io/${owner}/vodno-backend:${tag}"
-          kubectl -n "$NAMESPACE" set image deployment/frontend \
-            frontend="ghcr.io/${owner}/vodno-frontend:${tag}"
-
-      - name: Wait for both rollouts to finish
+      - name: Wait for both rollouts
         run: |
-          kubectl -n "$NAMESPACE" rollout status deployment/backend --timeout=180s
-          kubectl -n "$NAMESPACE" rollout status deployment/frontend --timeout=180s
+          kubectl -n "$NAMESPACE" rollout status deployment/backend  --timeout=300s
+          kubectl -n "$NAMESPACE" rollout status deployment/frontend --timeout=300s
+
+      # A green rollout only means the pods started. This checks the
+      # application actually answers through the Ingress.
+      - name: Smoke test through the Ingress
+        run: |
+          for attempt in $(seq 1 20); do
+            if curl -fsS -m 5 -H 'Host: vodno.local' http://127.0.0.1/api/health \
+                 | tee /dev/stderr | grep -q '"status":"healthy"'; then
+              curl -fsS -m 5 -o /dev/null -H 'Host: vodno.local' http://127.0.0.1/
+              echo "Smoke test passed after ${attempt} attempt(s)"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Smoke test never passed"
+          exit 1
+
+      # If the new version is live but broken, put the previous one back
+      # rather than leaving the cluster in a bad state.
+      - name: Roll back on failure
+        if: failure()
+        run: |
+          echo "Deployment failed - restoring the previous images"
+          kubectl -n "$NAMESPACE" set image deployment/backend  "backend=${{ steps.current.outputs.backend }}"  || true
+          kubectl -n "$NAMESPACE" set image deployment/frontend "frontend=${{ steps.current.outputs.frontend }}" || true
+          kubectl -n "$NAMESPACE" rollout status deployment/backend  --timeout=180s || true
+          kubectl -n "$NAMESPACE" rollout status deployment/frontend --timeout=180s || true
 
       - name: Report cluster state
         if: always()
