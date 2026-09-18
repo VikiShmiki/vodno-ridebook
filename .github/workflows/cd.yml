@@ -102,7 +102,7 @@ jobs:
           output: published-sbom-${{ matrix.service }}.json
 
       - name: Upload published image SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: published-sbom-${{ matrix.service }}
           path: published-sbom-${{ matrix.service }}.json
