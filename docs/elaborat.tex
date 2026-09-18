@@ -390,7 +390,7 @@ build both images with Buildx (GitHub Actions layer cache)
 push to ghcr.io, tagged:  latest · <short-sha> · <full-sha>
       ↓
 deploy on a self-hosted runner sitting next to the cluster
-  kubectl apply → kubectl set image → rollout status → Ingress smoke test
+  render full-SHA manifests → kubectl apply → rollout status → Ingress smoke test
   └─ on failure: roll back to the previously running images
 \end{code}
 
@@ -816,8 +816,8 @@ that runs in Kubernetes.
         \cd{create\_all} once the schema starts to evolve.
   \item \textbf{Observability} --- a Prometheus metrics endpoint, a Grafana
         dashboard and structured JSON logs.
-  \item \textbf{Argo CD} --- moving to GitOps would remove the ordering
-        constraint between \cd{kubectl apply} and \cd{kubectl set image}.
+  \item \textbf{Argo CD} --- moving to GitOps would commit release image
+        digests instead of rendering them in the deployment workflow.
   \item \textbf{A highly available database}, for example via the CloudNativePG
         operator.
   \item \textbf{GPS capture on a phone}, so a report can be filed at the

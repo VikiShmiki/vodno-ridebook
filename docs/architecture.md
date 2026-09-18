@@ -210,9 +210,11 @@ for no benefit at this size.
   highly available.
 - **`SEED_DATA=true` in the demo ConfigMap.** Convenient for a presentation,
   but a real deployment would leave it off.
-- **`kubectl apply -f k8s/` resets the image tag** to the value in the
-  manifests. The CD workflow therefore applies manifests before running
-  `kubectl set image`. A GitOps tool such as Argo CD, with the tag committed to
-  the repository, would remove this ordering constraint.
+- **The committed manifests use `latest` for local demos.** CD records the
+  currently running images, renders the immutable full commit SHA into its
+  checked-out manifests, and only then applies them. This avoids a temporary
+  rollout to `latest` and gives rollback the exact previous image references.
+  A GitOps tool such as Argo CD could instead commit release tags to a
+  deployment repository.
 - **The ingress hostname `vodno.local`** requires an `/etc/hosts` entry; there
   is no public DNS record.
