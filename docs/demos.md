@@ -125,7 +125,7 @@ Local equivalents of the same checks:
 $ cd backend && ruff check . && ruff format --check . && pytest
 All checks passed!
 23 files already formatted
-21 passed
+22 passed
 
 $ cd frontend && npm run lint && npx tsc -b && npm test
 Test Files  4 passed (4)
@@ -366,16 +366,17 @@ kubectl -n vodno-ridebook rollout status deployment/backend
 
 ## 9. Full CI/CD → Kubernetes flow
 
-With a `KUBE_CONFIG` secret configured on the repository:
+With the `vodno-kind` self-hosted runner online and the repository variable
+`SELF_HOSTED_DEPLOY=true`:
 
 ```text
 edit code  →  git push  →  GitHub Actions
                              ├─ CI gate (lint, tests, image build, compose smoke test)
                              ├─ build and push ghcr.io/…:latest and :<sha>
-                             └─ kubectl apply -f k8s/
-                                kubectl set image deployment/backend backend=…:<sha>
+                             └─ render full-SHA images into the manifests
+                                kubectl apply -f k8s/
                                 kubectl rollout status deployment/backend
 ```
 
-The `deploy` job is skipped automatically when the secret is absent, so the
-pipeline is still green on a fork or on a machine without a cluster.
+Set `SELF_HOSTED_DEPLOY=false` while the runner is offline. The deploy job is
+then skipped, so the pipeline completes without queueing for a missing runner.

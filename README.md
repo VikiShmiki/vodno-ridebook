@@ -247,8 +247,8 @@ build both images with Buildx
 push to ghcr.io tagged:  latest · <short-sha> · <full-sha>
     ↓
 deploy on a self-hosted runner next to the cluster
+    render the full commit SHA into the manifests
     kubectl apply -f k8s/
-    kubectl set image … :<short-sha>
     kubectl rollout status
     smoke test through the Ingress
     └─ on failure: roll back to the previous images
@@ -293,8 +293,8 @@ Then switch deployment on with a repository variable:
 gh variable set SELF_HOSTED_DEPLOY --body true
 ```
 
-When the runner is offline, unset the variable and the job is skipped rather
-than queueing forever.
+When the runner is offline, set the variable to `false` and the job is skipped
+rather than queueing forever.
 
 > **Security note.** This repository is public, and a self-hosted runner
 > executes workflow code on your own machine. Only the `deploy` job is
@@ -367,9 +367,10 @@ kubectl get ingress,configmap,secret,pvc -n vodno-ridebook
 `kubectl` does not recurse into subdirectories, so `k8s/examples/` is never
 applied by accident.
 
-> **Note on ordering.** `kubectl apply -f k8s/` resets the image to the tag
-> written in the manifests. The CD workflow therefore applies the manifests
-> *before* running `kubectl set image`, never after.
+> **Note on image tags.** The committed manifests use `latest` for convenient
+> local deployment. CD renders the immutable full commit SHA into its checked-
+> out copy before applying the manifests, so a release needs only one rollout
+> and rollback can restore the images recorded before any cluster mutation.
 
 ---
 
