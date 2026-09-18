@@ -150,7 +150,7 @@ jobs:
 
       # Verify the image builds on a pull request without publishing anything.
       - name: Build ${{ matrix.service }} image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./${{ matrix.service }}
           push: false
